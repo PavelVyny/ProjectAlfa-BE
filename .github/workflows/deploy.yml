@@ -6,11 +6,6 @@ on:
   pull_request:
     branches: [ main, develop ]
 
-env:
-  PROJECT_ID: alpha-develop
-  REGION: us-central1
-  SERVICE_NAME: project-alfa-backend
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -21,8 +16,8 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
-        cache: 'npm'
+        node-version: ${{ vars.NODE_VERSION || '20' }}
+        cache: ${{ vars.BUILD_CACHE || 'npm' }}
     
     - name: Install dependencies
       run: npm ci
@@ -44,8 +39,8 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
-        cache: 'npm'
+        node-version: ${{ vars.NODE_VERSION || '20' }}
+        cache: ${{ vars.BUILD_CACHE || 'npm' }}
     
     - name: Install dependencies
       run: npm ci
@@ -56,7 +51,7 @@ jobs:
     - name: Setup Google Cloud CLI
       uses: google-github-actions/setup-gcloud@v2
       with:
-        project_id: ${{ env.PROJECT_ID }}
+        project_id: ${{ vars.PROJECT_ID || 'alpha-develop' }}
     
     - name: Authenticate to Google Cloud
       uses: google-github-actions/auth@v2
@@ -65,12 +60,13 @@ jobs:
     
     - name: Deploy to Cloud Run
       run: |
-        gcloud run deploy ${{ env.SERVICE_NAME }} \
+        gcloud run deploy ${{ vars.SERVICE_NAME || 'project-alfa-backend' }} \
           --source . \
           --platform managed \
-          --region ${{ env.REGION }} \
+          --region ${{ vars.REGION || 'us-central1' }} \
           --allow-unauthenticated \
-          --port 3000 \
-          --memory 512Mi \
-          --cpu 1 \
-          --max-instances 10 
+          --port ${{ vars.PORT || '3001' }} \
+          --memory ${{ vars.MEMORY || '512Mi' }} \
+          --cpu ${{ vars.CPU || '1' }} \
+          --min-instances ${{ vars.MIN_INSTANCES || '0' }} \
+          --max-instances ${{ vars.MAX_INSTANCES || '10' }} 

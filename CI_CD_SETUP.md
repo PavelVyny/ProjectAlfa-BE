@@ -1,16 +1,58 @@
-# Настройка CI/CD для ProjectAlfa-BE
+# CI/CD Setup for ProjectAlfa-BE
 
-## Что создано
+## What's Created
 
-1. **GitHub Actions workflow** (`.github/workflows/deploy.yml`) - автоматический деплой на Google Cloud без Docker
+1. **GitHub Actions workflow** (`.github/workflows/deploy.yml`) - automatic deployment to Google Cloud without Docker
+2. **Configuration file** (`.github/workflows/config.env`) - centralized environment variables configuration
 
-## Настройка GitHub Secrets
+## Configuration
 
-В настройках вашего GitHub репозитория добавьте следующие секреты:
+### Environment Variables
+
+All environment variables are stored in `.github/workflows/config.env` file:
+
+```bash
+# Google Cloud Configuration
+PROJECT_ID=alpha-develop
+REGION=us-central1
+SERVICE_NAME=project-alfa-backend
+
+# Application Configuration
+NODE_VERSION=20
+PORT=3001
+MEMORY=512Mi
+CPU=1
+MAX_INSTANCES=10
+MIN_INSTANCES=0
+
+# Build Configuration
+BUILD_CACHE=npm
+```
+
+### GitHub Repository Variables
+
+To use these variables in your workflow, add them as repository variables in GitHub:
+
+1. Go to your repository Settings → Secrets and variables → Actions
+2. Add the following variables in the "Variables" tab:
+   - `PROJECT_ID`: Your Google Cloud project ID
+   - `REGION`: Your preferred Google Cloud region
+   - `SERVICE_NAME`: Your service name
+   - `NODE_VERSION`: Node.js version (default: 20)
+   - `PORT`: Application port (default: 3001)
+   - `MEMORY`: Memory allocation (default: 512Mi)
+   - `CPU`: CPU allocation (default: 1)
+   - `MAX_INSTANCES`: Maximum instances (default: 10)
+   - `MIN_INSTANCES`: Minimum instances (default: 0)
+   - `BUILD_CACHE`: Build cache type (default: npm)
+
+## GitHub Secrets Configuration
+
+In your GitHub repository settings, add the following secrets:
 
 ### GCP_SA_KEY
 
-Содержимое вашего service account ключа (весь JSON файл):
+Content of your service account key (entire JSON file):
 
 ```json
 {
@@ -28,45 +70,52 @@
 }
 ```
 
-## Как это работает
+## How It Works
 
-### При push в main или develop ветки:
+### When pushing to main or develop branches:
 
-1. Запускаются тесты и линтинг
-2. Если тесты прошли успешно, приложение собирается
-3. Google Cloud автоматически собирает и деплоит приложение из исходного кода
+1. Tests and linting are run
+2. If tests pass successfully, the application is built
+3. Google Cloud automatically builds and deploys the application from source code
 
-### При создании Pull Request:
+### When creating a Pull Request:
 
-1. Запускаются только тесты и линтинг
-2. Деплой не происходит
+1. Only tests and linting are run
+2. Deployment does not occur
 
-## Настройка Google Cloud
+## Google Cloud Configuration
 
-Убедитесь, что у вас включены следующие API:
+Make sure you have the following APIs enabled:
 
 - Cloud Run API
 - Cloud Build API
 
-## Проверка деплоя
+## Deployment Verification
 
-После успешного деплоя ваше приложение будет доступно по адресу:
+After successful deployment, your application will be available at:
 
 ```
 https://project-alfa-backend-[hash]-[region].run.app
 ```
 
-## Мониторинг
+## Monitoring
 
-Все действия можно отслеживать в:
+All actions can be tracked in:
 
-1. GitHub Actions вкладке вашего репозитория
-2. Google Cloud Console в разделе Cloud Run
-3. Google Cloud Console в разделе Cloud Build
+1. GitHub Actions tab of your repository
+2. Google Cloud Console in the Cloud Run section
+3. Google Cloud Console in the Cloud Build section
 
-## Преимущества деплоя без Docker
+## Benefits of Deployment without Docker
 
-- Проще настройка
-- Меньше файлов конфигурации
-- Google Cloud автоматически оптимизирует сборку
-- Быстрее деплой
+- Simpler configuration
+- Fewer configuration files
+- Google Cloud automatically optimizes the build
+- Faster deployment
+
+## Benefits of Centralized Configuration
+
+- Easy to modify deployment parameters
+- Version control for configuration
+- Reusable across different environments
+- Clear separation of concerns
