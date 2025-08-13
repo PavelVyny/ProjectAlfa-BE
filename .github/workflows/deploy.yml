@@ -73,5 +73,5 @@ jobs:
           --cpu ${{ vars.CPU || '1' }} \
           --min-instances ${{ vars.MIN_INSTANCES || '0' }} \
           --max-instances ${{ vars.MAX_INSTANCES || '10' }} \
-          --build-service-account=480977786594-compute@developer.gserviceaccount.com \
+          --build-service-account=${{ vars.BUILD_SERVICE_ACCOUNT || 'projects/alpha-develop/serviceAccounts/480977786594-compute@developer.gserviceaccount.com' }} \
           --timeout=600 
