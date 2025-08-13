@@ -1,6 +1,5 @@
 # Node.js
 node_modules/
-dist/
 build/
 .env
 .env.* # например .env.development, .env.production
