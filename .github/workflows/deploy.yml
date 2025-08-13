@@ -68,7 +68,6 @@ jobs:
           --platform managed \
           --region ${{ vars.REGION || 'us-central1' }} \
           --allow-unauthenticated \
-          --port ${{ vars.PORT || '3001' }} \
           --memory ${{ vars.MEMORY || '512Mi' }} \
           --cpu ${{ vars.CPU || '1' }} \
           --min-instances ${{ vars.MIN_INSTANCES || '0' }} \
