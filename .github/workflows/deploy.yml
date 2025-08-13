@@ -58,6 +58,9 @@ jobs:
       with:
         credentials_json: ${{ secrets.GCP_SA_KEY }}
     
+    - name: Check Cloud Build service account
+      run: gcloud builds get-default-service-account
+    
     - name: Deploy to Cloud Run
       run: |
         gcloud run deploy ${{ vars.SERVICE_NAME || 'project-alfa-backend' }} \
@@ -69,4 +72,6 @@ jobs:
           --memory ${{ vars.MEMORY || '512Mi' }} \
           --cpu ${{ vars.CPU || '1' }} \
           --min-instances ${{ vars.MIN_INSTANCES || '0' }} \
-          --max-instances ${{ vars.MAX_INSTANCES || '10' }} 
+          --max-instances ${{ vars.MAX_INSTANCES || '10' }} \
+          --build-service-account=480977786594-compute@developer.gserviceaccount.com \
+          --timeout=600 
