@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -28,14 +32,21 @@ export class AuthService {
     // Шаг 2: Проверяем, существует ли пользователь в Firebase
     const firebaseUserExists = await this.firebaseService.userExists(email);
     if (firebaseUserExists) {
-      throw new ConflictException('User with this email already exists in Firebase');
+      throw new ConflictException(
+        'User with this email already exists in Firebase',
+      );
     }
 
     try {
       // Шаг 3: Создаем пользователя в Firebase
-      const displayName = firstName && lastName ? `${firstName} ${lastName}` : undefined;
-      const firebaseUid = await this.firebaseService.createUser(email, password, displayName);
-      
+      const displayName =
+        firstName && lastName ? `${firstName} ${lastName}` : undefined;
+      const firebaseUid = await this.firebaseService.createUser(
+        email,
+        password,
+        displayName,
+      );
+
       console.log(`✅ Пользователь создан в Firebase с UID: ${firebaseUid}`);
 
       // Шаг 4: Хешируем пароль для PostgreSQL
@@ -67,13 +78,12 @@ export class AuthService {
           lastName: user.lastName || undefined,
         },
       };
-
     } catch (error) {
       // Если что-то пошло не так, логируем ошибку
       console.error('❌ Ошибка при создании пользователя:', error);
-      
+
       // Если пользователь создался в Firebase, но не в PostgreSQL, удаляем его из Firebase
-      if (error.message.includes('Firebase')) {
+      if (error instanceof Error && error.message.includes('Firebase')) {
         // Пытаемся найти и удалить пользователя из Firebase
         try {
           const firebaseUser = await this.firebaseService.getUserByEmail(email);
@@ -82,10 +92,13 @@ export class AuthService {
             console.log('✅ Пользователь удален из Firebase после ошибки');
           }
         } catch (deleteError) {
-          console.error('❌ Не удалось удалить пользователя из Firebase:', deleteError);
+          console.error(
+            '❌ Не удалось удалить пользователя из Firebase:',
+            deleteError,
+          );
         }
       }
-      
+
       throw error;
     }
   }
