@@ -44,6 +44,7 @@ const common_1 = require("@nestjs/common");
 const admin = __importStar(require("firebase-admin"));
 let FirebaseService = class FirebaseService {
     async onModuleInit() {
+        await new Promise((resolve) => setTimeout(resolve, 0));
         this.firebaseApp = admin.initializeApp({
             credential: admin.credential.cert({
                 projectId: process.env.FIREBASE_PROJECT_ID,
@@ -65,7 +66,8 @@ let FirebaseService = class FirebaseService {
         }
         catch (error) {
             console.error('❌ Ошибка создания пользователя в Firebase:', error);
-            throw new Error(`Не удалось создать пользователя в Firebase: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            throw new Error(`Не удалось создать пользователя в Firebase: ${errorMessage}`);
         }
     }
     async getUser(uid) {
@@ -75,7 +77,8 @@ let FirebaseService = class FirebaseService {
         }
         catch (error) {
             console.error('❌ Ошибка получения пользователя из Firebase:', error);
-            throw new Error(`Не удалось получить пользователя из Firebase: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            throw new Error(`Не удалось получить пользователя из Firebase: ${errorMessage}`);
         }
     }
     async deleteUser(uid) {
@@ -85,7 +88,8 @@ let FirebaseService = class FirebaseService {
         }
         catch (error) {
             console.error('❌ Ошибка удаления пользователя из Firebase:', error);
-            throw new Error(`Не удалось удалить пользователя из Firebase: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            throw new Error(`Не удалось удалить пользователя из Firebase: ${errorMessage}`);
         }
     }
     async userExists(email) {
@@ -94,7 +98,9 @@ let FirebaseService = class FirebaseService {
             return true;
         }
         catch (error) {
-            if (error.code === 'auth/user-not-found') {
+            if (error instanceof Error &&
+                'code' in error &&
+                error.code === 'auth/user-not-found') {
                 return false;
             }
             throw error;
@@ -107,7 +113,8 @@ let FirebaseService = class FirebaseService {
         }
         catch (error) {
             console.error('❌ Ошибка получения пользователя по email из Firebase:', error);
-            throw new Error(`Не удалось получить пользователя по email из Firebase: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            throw new Error(`Не удалось получить пользователя по email из Firebase: ${errorMessage}`);
         }
     }
 };

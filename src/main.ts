@@ -23,12 +23,19 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT || 3001;
-  console.log(`Application starting on port ${port}`);
-  await app.listen(port); // Убираем '0.0.0.0' для Cloud Run
-  console.log(`Application is running on port ${port}`);
+  const host = '0.0.0.0'; 
+  
+  console.log(`🚀 Application starting on ${host}:${port}`);
+  console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 Database URL: ${process.env.DATABASE_URL ? 'Set' : 'Not set'}`);
+  console.log(`🔥 Firebase Project: ${process.env.FIREBASE_PROJECT_ID || 'Not set'}`);
+  
+  await app.listen(port, host);
+  console.log(`✅ Application is running on ${host}:${port}`);
+  console.log(`🌐 Server ready to accept connections`);
 }
 
 bootstrap().catch((error) => {
-  console.error('Failed to start application:', error);
+  console.error('❌ Failed to start application:', error);
   process.exit(1);
 });

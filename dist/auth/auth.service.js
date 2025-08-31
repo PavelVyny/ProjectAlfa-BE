@@ -95,7 +95,7 @@ let AuthService = class AuthService {
         }
         catch (error) {
             console.error('❌ Ошибка при создании пользователя:', error);
-            if (error.message.includes('Firebase')) {
+            if (error instanceof Error && error.message.includes('Firebase')) {
                 try {
                     const firebaseUser = await this.firebaseService.getUserByEmail(email);
                     if (firebaseUser) {

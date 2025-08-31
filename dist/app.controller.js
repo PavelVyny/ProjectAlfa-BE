@@ -22,7 +22,7 @@ let AppController = class AppController {
     health() {
         return {
             status: 'ok',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
         };
     }
 };
