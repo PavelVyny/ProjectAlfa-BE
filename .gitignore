@@ -34,3 +34,4 @@ public/
 
 # Optional: Swagger JSON
 swagger.json
+/generated/prisma

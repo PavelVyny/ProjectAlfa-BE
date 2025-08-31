@@ -1,0 +1,26 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Модель пользователя
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firebaseUid String? @unique // ID пользователя в Firebase
+  firstName String?
+  lastName  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Индексы для быстрого поиска
+  @@index([email])
+  @@index([firebaseUid])
+}
