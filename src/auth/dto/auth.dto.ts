@@ -24,7 +24,7 @@ export class LoginDto {
 }
 
 export class AuthResponseDto {
-  accessToken: string;
+  access_token: string;
   user: {
     id: string;
     email: string;

@@ -14,12 +14,17 @@ async function bootstrap() {
     }),
   );
 
-  // Настраиваем CORS для продакшена
+  // Настраиваем CORS для продакшена и разработки
+  const allowedOrigins = [
+    'http://localhost:3000', // Разработка
+    'https://project-alfa-fe-two.vercel.app/', // Продакшен
+  ];
+  
   app.enableCors({
-    origin: ['*'], // Разрешаем все источники
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    credentials: false, // Отключаем для продакшена
+    credentials: true,
   });
 
   const port = process.env.PORT || 3001;
