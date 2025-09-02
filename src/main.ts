@@ -16,8 +16,9 @@ async function bootstrap() {
 
   // Настраиваем CORS для продакшена и разработки
   const allowedOrigins = [
-    'http://localhost:3000', // Разработка
-    'https://project-alfa-fe-two.vercel.app/', // Продакшен
+    'http://localhost:3000', // Фронтенд разработка
+    'http://localhost:3001', // Бэкенд разработка
+    'https://project-alfa-fe-two.vercel.app/', // Продакшен фронтенд
   ];
   
   app.enableCors({

@@ -40,6 +40,31 @@ export class FirebaseService implements OnModuleInit {
     }
   }
 
+  async createUserWithoutPassword(
+    email: string,
+    displayName?: string,
+    photoURL?: string,
+  ): Promise<string> {
+    try {
+      const userRecord = await this.firebaseApp.auth().createUser({
+        email,
+        displayName,
+        photoURL,
+        emailVerified: true, // Google email уже верифицирован
+        disabled: false,
+      });
+      console.log(`✅ Google пользователь создан в Firebase без пароля: ${userRecord.uid}`);
+      return userRecord.uid;
+    } catch (error) {
+      console.error('❌ Ошибка создания Google пользователя в Firebase:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(
+        `Не удалось создать Google пользователя в Firebase: ${errorMessage}`,
+      );
+    }
+  }
+
   async getUser(uid: string) {
     try {
       const userRecord = await this.firebaseApp.auth().getUser(uid);

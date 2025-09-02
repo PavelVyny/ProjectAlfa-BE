@@ -23,6 +23,11 @@ export class LoginDto {
   password: string;
 }
 
+export class GoogleAuthDto {
+  @IsString()
+  credential: string; // JWT токен от Google
+}
+
 export class AuthResponseDto {
   access_token: string;
   user: {
@@ -30,5 +35,6 @@ export class AuthResponseDto {
     email: string;
     firstName?: string;
     lastName?: string;
+    avatar?: string;
   };
 }

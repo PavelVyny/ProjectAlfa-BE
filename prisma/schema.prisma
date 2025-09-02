@@ -12,10 +12,12 @@ datasource db {
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
-  password  String
+  password  String?  // Сделаем опциональным для Google пользователей
   firebaseUid String? @unique // ID пользователя в Firebase
+  googleId  String?  @unique // ID пользователя в Google
   firstName String?
   lastName  String?
+  avatar    String?  // URL аватара от Google
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -23,4 +25,5 @@ model User {
   // Индексы для быстрого поиска
   @@index([email])
   @@index([firebaseUid])
+  @@index([googleId])
 }
