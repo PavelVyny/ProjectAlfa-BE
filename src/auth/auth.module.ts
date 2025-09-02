@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { ProtectedController } from './protected.controller';
 import { AuthService } from './auth.service';
+import { GoogleAuthService } from './google-auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
 import { FirebaseModule } from '../firebase/firebase.module';
@@ -18,7 +19,7 @@ import { FirebaseModule } from '../firebase/firebase.module';
     FirebaseModule,
   ],
   controllers: [AuthController, ProtectedController],
-  providers: [AuthService, JwtStrategy, PrismaService],
+  providers: [AuthService, GoogleAuthService, JwtStrategy, PrismaService],
   exports: [AuthService],
 })
 export class AuthModule {}

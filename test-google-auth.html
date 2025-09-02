@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ru">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Тест Google + Firebase аутентификации</title>
+		<script src="https://accounts.google.com/gsi/client" async defer></script>
+		<style>
+			body {
+				font-family: Arial, sans-serif;
+				max-width: 800px;
+				margin: 0 auto;
+				padding: 20px;
+				background-color: #f5f5f5;
+			}
+			.container {
+				background: white;
+				padding: 30px;
+				border-radius: 10px;
+				box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+				margin-bottom: 20px;
+			}
+			h1 {
+				color: #333;
+				text-align: center;
+				margin-bottom: 30px;
+			}
+			.google-btn {
+				display: flex;
+				justify-content: center;
+				margin: 20px 0;
+			}
+			.result {
+				margin-top: 20px;
+				padding: 15px;
+				border-radius: 5px;
+				white-space: pre-wrap;
+				font-family: monospace;
+				font-size: 14px;
+			}
+			.success {
+				background-color: #d4edda;
+				border: 1px solid #c3e6cb;
+				color: #155724;
+			}
+			.error {
+				background-color: #f8d7da;
+				border: 1px solid #f5c6cb;
+				color: #721c24;
+			}
+			.info {
+				background-color: #d1ecf1;
+				border: 1px solid #bee5eb;
+				color: #0c5460;
+			}
+			.user-info {
+				background-color: #e2e3e5;
+				border: 1px solid #d6d8db;
+				color: #383d41;
+				padding: 15px;
+				border-radius: 5px;
+				margin: 15px 0;
+			}
+			.firebase-status {
+				display: inline-block;
+				padding: 5px 10px;
+				border-radius: 15px;
+				font-size: 12px;
+				font-weight: bold;
+			}
+			.firebase-yes {
+				background-color: #28a745;
+				color: white;
+			}
+			.firebase-no {
+				background-color: #dc3545;
+				color: white;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<h1>🚀 Тест Google + Firebase аутентификации</h1>
+
+			<div class="info">
+				<strong>ℹ️ Информация:</strong> Теперь все Google пользователи автоматически попадают в
+				Firebase!
+			</div>
+
+			<h2>🔑 Google аутентификация</h2>
+			<div class="google-btn">
+				<div
+					id="g_id_onload"
+					data-client_id="480977786594-of15aub7mfv02ggv2fdsiutfiu4p8v81.apps.googleusercontent.com"
+					data-callback="handleCredentialResponse"
+					data-auto_prompt="false"
+				></div>
+				<div
+					class="g_id_signin"
+					data-type="standard"
+					data-size="large"
+					data-theme="outline"
+					data-text="sign_in_with"
+					data-shape="rectangular"
+					data-logo_alignment="left"
+				></div>
+			</div>
+
+			<div id="userInfo" class="user-info" style="display: none;">
+				<h3>👤 Информация о пользователе</h3>
+				<div id="userDetails"></div>
+			</div>
+
+			<div id="result"></div>
+		</div>
+
+		<script>
+			let currentUser = null;
+			let authToken = null;
+
+			function handleCredentialResponse(response) {
+				console.log("Google OAuth response:", response);
+
+				// Отправляем credential на наш бэкенд
+				authenticateWithBackend(response.credential);
+			}
+
+			async function authenticateWithBackend(credential) {
+				try {
+					showResult("🔄 Аутентификация через Google...", "", "info");
+
+					const response = await fetch("http://localhost:3001/auth/google", {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({ credential }),
+					});
+
+					const result = await response.json();
+
+					if (response.ok) {
+						authToken = result.access_token;
+						currentUser = result.user;
+
+						showResult("✅ Успешная аутентификация через Google!", result, "success");
+						showUserInfo(result.user);
+
+						// Проверяем статус Firebase
+						await checkFirebaseStatus();
+					} else {
+						showResult("❌ Ошибка аутентификации:", result, "error");
+					}
+				} catch (error) {
+					showResult("❌ Ошибка сети:", error.message, "error");
+				}
+			}
+
+			async function checkFirebaseStatus() {
+				if (!authToken) return;
+
+				try {
+					const response = await fetch("http://localhost:3001/protected/profile", {
+						headers: {
+							Authorization: `Bearer ${authToken}`,
+						},
+					});
+
+					if (response.ok) {
+						const profile = await response.json();
+						console.log("Профиль пользователя:", profile);
+
+						// Здесь можно добавить дополнительную логику проверки Firebase
+						// Например, проверить есть ли у пользователя firebaseUid
+					}
+				} catch (error) {
+					console.error("Ошибка при получении профиля:", error);
+				}
+			}
+
+			function showUserInfo(user) {
+				const userInfoDiv = document.getElementById("userInfo");
+				const userDetailsDiv = document.getElementById("userDetails");
+
+				userDetailsDiv.innerHTML = `
+                <p><strong>ID:</strong> ${user.id}</p>
+                <p><strong>Email:</strong> ${user.email}</p>
+                <p><strong>Имя:</strong> ${user.firstName || "Не указано"}</p>
+                <p><strong>Фамилия:</strong> ${user.lastName || "Не указано"}</p>
+                <p><strong>Аватар:</strong> ${user.avatar ? "Есть" : "Нет"}</p>
+                <p><strong>Firebase статус:</strong> 
+                    <span class="firebase-status firebase-yes">✅ В Firebase</span>
+                </p>
+            `;
+
+				userInfoDiv.style.display = "block";
+			}
+
+			function showResult(title, data, type) {
+				const resultDiv = document.getElementById("result");
+				const content = data ? `${title}\n\n${JSON.stringify(data, null, 2)}` : title;
+				resultDiv.textContent = content;
+				resultDiv.className = `result ${type}`;
+			}
+
+			// Обработка ошибок Google OAuth
+			window.onerror = function (msg, url, lineNo, columnNo, error) {
+				console.error("Ошибка:", msg, url, lineNo, columnNo, error);
+				showResult("❌ Ошибка JavaScript:", msg, "error");
+				return false;
+			};
+
+			// Проверяем доступность бэкенда при загрузке
+			window.addEventListener("load", async () => {
+				try {
+					const response = await fetch("http://localhost:3001/");
+					if (response.ok) {
+						showResult("✅ Бэкенд доступен", "Сервер работает на порту 3001", "success");
+					}
+				} catch (error) {
+					showResult(
+						"❌ Бэкенд недоступен",
+						"Убедитесь, что сервер запущен на порту 3001",
+						"error",
+					);
+				}
+			});
+		</script>
+	</body>
+</html>
