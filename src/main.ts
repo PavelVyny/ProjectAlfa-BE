@@ -18,7 +18,7 @@ async function bootstrap() {
   const allowedOrigins = [
     'http://localhost:3000', // Фронтенд разработка
     'http://localhost:3001', // Бэкенд разработка
-    'https://project-alfa-fe-two.vercel.app/', // Продакшен фронтенд
+    'https://project-alfa-fe-two.vercel.app', // Продакшен фронтенд
   ];
   
   app.enableCors({
