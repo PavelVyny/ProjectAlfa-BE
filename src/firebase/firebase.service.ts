@@ -53,10 +53,15 @@ export class FirebaseService implements OnModuleInit {
         emailVerified: true, // Google email уже верифицирован
         disabled: false,
       });
-      console.log(`✅ Google пользователь создан в Firebase без пароля: ${userRecord.uid}`);
+      console.log(
+        `✅ Google пользователь создан в Firebase без пароля: ${userRecord.uid}`,
+      );
       return userRecord.uid;
     } catch (error) {
-      console.error('❌ Ошибка создания Google пользователя в Firebase:', error);
+      console.error(
+        '❌ Ошибка создания Google пользователя в Firebase:',
+        error,
+      );
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
       throw new Error(

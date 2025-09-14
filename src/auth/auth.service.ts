@@ -8,7 +8,12 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { FirebaseService } from '../firebase/firebase.service';
 import { GoogleAuthService } from './google-auth.service';
-import { RegisterDto, LoginDto, GoogleAuthDto, AuthResponseDto } from './dto/auth.dto';
+import {
+  RegisterDto,
+  LoginDto,
+  GoogleAuthDto,
+  AuthResponseDto,
+} from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -121,7 +126,7 @@ export class AuthService {
     if (!user.password) {
       throw new UnauthorizedException('Invalid credentials - no password set');
     }
-    
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
@@ -159,7 +164,8 @@ export class AuthService {
 
     try {
       // Верифицируем Google токен
-      const googleUser = await this.googleAuthService.verifyGoogleToken(credential);
+      const googleUser =
+        await this.googleAuthService.verifyGoogleToken(credential);
 
       if (!googleUser.email || !googleUser.emailVerified) {
         throw new UnauthorizedException('Google email not verified or missing');
@@ -168,10 +174,7 @@ export class AuthService {
       // Ищем существующего пользователя по email или googleId
       let user = await this.prisma.user.findFirst({
         where: {
-          OR: [
-            { email: googleUser.email },
-            { googleId: googleUser.googleId },
-          ],
+          OR: [{ email: googleUser.email }, { googleId: googleUser.googleId }],
         },
       });
 
@@ -189,29 +192,37 @@ export class AuthService {
       } else {
         // Создаем нового пользователя
         let firebaseUid: string | null = null;
-        
+
         try {
           // Проверяем, существует ли пользователь в Firebase
-          const firebaseUserExists = await this.firebaseService.userExists(googleUser.email);
-          
+          const firebaseUserExists = await this.firebaseService.userExists(
+            googleUser.email,
+          );
+
           if (!firebaseUserExists) {
             // Создаем пользователя в Firebase без пароля (только email)
-            const displayName = googleUser.firstName && googleUser.lastName 
-              ? `${googleUser.firstName} ${googleUser.lastName}` 
-              : undefined;
-            
+            const displayName =
+              googleUser.firstName && googleUser.lastName
+                ? `${googleUser.firstName} ${googleUser.lastName}`
+                : undefined;
+
             firebaseUid = await this.firebaseService.createUserWithoutPassword(
               googleUser.email,
               displayName,
-              googleUser.avatar
+              googleUser.avatar,
             );
-            
-            console.log(`✅ Google пользователь создан в Firebase с UID: ${firebaseUid}`);
+
+            console.log(
+              `✅ Google пользователь создан в Firebase с UID: ${firebaseUid}`,
+            );
           } else {
             // Если пользователь уже существует в Firebase, получаем его UID
-            const existingFirebaseUser = await this.firebaseService.getUserByEmail(googleUser.email);
+            const existingFirebaseUser =
+              await this.firebaseService.getUserByEmail(googleUser.email);
             firebaseUid = existingFirebaseUser?.uid || null;
-            console.log(`✅ Google пользователь уже существует в Firebase с UID: ${firebaseUid}`);
+            console.log(
+              `✅ Google пользователь уже существует в Firebase с UID: ${firebaseUid}`,
+            );
           }
         } catch (firebaseError) {
           console.error('❌ Ошибка при работе с Firebase:', firebaseError);
@@ -231,7 +242,9 @@ export class AuthService {
           },
         });
 
-        console.log(`✅ Google пользователь создан в PostgreSQL с ID: ${user.id}`);
+        console.log(
+          `✅ Google пользователь создан в PostgreSQL с ID: ${user.id}`,
+        );
       }
 
       // Генерируем JWT токен
