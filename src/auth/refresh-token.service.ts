@@ -2,20 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from './jwt.service';
 import * as bcrypt from 'bcryptjs';
-
-// Temporary RefreshToken interface until Prisma generates types
-interface RefreshToken {
-  id: string;
-  userId: string;
-  tokenHash: string;
-  userAgent?: string | null;
-  ipAddress?: string | null;
-  deviceId?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  expiresAt: Date;
-  isActive: boolean;
-}
+import { RefreshToken } from '@prisma/client';
 
 // Refresh token creation data
 export interface CreateRefreshTokenData {
