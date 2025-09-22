@@ -1,0 +1,24 @@
+# Database
+DATABASE_URL="postgresql://username:password@localhost:5432/projectalfa?schema=public"
+
+# JWT
+JWT_SECRET="your-super-secret-jwt-key-here"
+
+# Google OAuth
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+GOOGLE_REDIRECT_URI="http://localhost:3000/auth/google/callback"
+
+# Firebase
+FIREBASE_PROJECT_ID="your-firebase-project-id"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n"
+FIREBASE_CLIENT_EMAIL="your-service-account@your-project.iam.gserviceaccount.com"
+
+# Application
+NODE_ENV="development"
+PORT=3000
+
+
+
+
+
