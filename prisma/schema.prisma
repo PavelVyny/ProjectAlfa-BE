@@ -8,22 +8,58 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Модель пользователя
+// User model
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
-  password  String?  // Сделаем опциональным для Google пользователей
-  firebaseUid String? @unique // ID пользователя в Firebase
-  googleId  String?  @unique // ID пользователя в Google
+  password  String?  // Optional for Google OAuth users
+  firebaseUid String? @unique // Firebase user ID
+  googleId  String?  @unique // Google user ID
   firstName String?
   lastName  String?
-  avatar    String?  // URL аватара от Google
+  avatar    String?  // Google avatar URL
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Индексы для быстрого поиска
+  // One-to-many relationship with refresh tokens
+  refreshTokens RefreshToken[]
+
+  // Indexes for fast lookups
   @@index([email])
   @@index([firebaseUid])
   @@index([googleId])
+}
+
+// Refresh token model for secure token rotation
+model RefreshToken {
+  id        String   @id @default(cuid())
+
+  // Many-to-one relationship with user
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Hashed refresh token (never store in plain text!)
+  tokenHash String   @unique
+
+  // Security metadata for tracking and validation
+  userAgent String?  // User's browser/device info
+  ipAddress String?  // IP address at creation time
+  deviceId  String?  // Unique device identifier (optional)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Expiration date (e.g., 30 days)
+  expiresAt DateTime
+
+  // Active flag for token revocation without deletion
+  isActive  Boolean  @default(true)
+
+  // Performance indexes
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@index([isActive])
 }
