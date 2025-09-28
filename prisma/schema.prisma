@@ -34,11 +34,9 @@ model User {
 // Refresh token model for secure token rotation
 model RefreshToken {
   id        String   @id @default(cuid())
-
   // Many-to-one relationship with user
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   // Hashed refresh token (never store in plain text!)
   tokenHash String   @unique
 
