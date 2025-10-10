@@ -53,10 +53,15 @@ export class FirebaseService implements OnModuleInit {
         emailVerified: true, // Google email уже верифицирован
         disabled: false,
       });
-      console.log(`✅ Google пользователь создан в Firebase без пароля: ${userRecord.uid}`);
+      console.log(
+        `✅ Google пользователь создан в Firebase без пароля: ${userRecord.uid}`,
+      );
       return userRecord.uid;
     } catch (error) {
-      console.error('❌ Ошибка создания Google пользователя в Firebase:', error);
+      console.error(
+        '❌ Ошибка создания Google пользователя в Firebase:',
+        error,
+      );
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
       throw new Error(
@@ -131,7 +136,10 @@ export class FirebaseService implements OnModuleInit {
       const userRecord = await this.firebaseApp.auth().getUser(uid);
       return userRecord;
     } catch (error) {
-      console.error('❌ Ошибка получения пользователя по UID из Firebase:', error);
+      console.error(
+        '❌ Ошибка получения пользователя по UID из Firebase:',
+        error,
+      );
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
       throw new Error(
@@ -158,10 +166,14 @@ export class FirebaseService implements OnModuleInit {
         },
       );
 
-      const data = await response.json();
+      const data = (await response.json()) as {
+        error?: { message?: string };
+      };
 
       if (!response.ok) {
-        throw new Error(data.error?.message || 'Failed to send password reset email');
+        throw new Error(
+          data.error?.message || 'Failed to send password reset email',
+        );
       }
 
       console.log(`✅ Письмо сброса пароля отправлено на: ${email}`);
@@ -186,9 +198,7 @@ export class FirebaseService implements OnModuleInit {
       console.error('❌ Ошибка обновления пароля в Firebase:', error);
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
-      throw new Error(
-        `Не удалось обновить пароль в Firebase: ${errorMessage}`,
-      );
+      throw new Error(`Не удалось обновить пароль в Firebase: ${errorMessage}`);
     }
   }
 
@@ -210,8 +220,6 @@ export class FirebaseService implements OnModuleInit {
         },
       );
 
-      const data = await response.json();
-
       if (response.ok) {
         console.log(`✅ Пароль проверен в Firebase для: ${email}`);
         return true;
@@ -225,7 +233,10 @@ export class FirebaseService implements OnModuleInit {
     }
   }
 
-  async verifyPasswordAndGetUser(email: string, password: string): Promise<any> {
+  async verifyPasswordAndGetUser(
+    email: string,
+    password: string,
+  ): Promise<{ uid: string; email: string; emailVerified: boolean } | null> {
     try {
       // Используем Firebase REST API для проверки пароля и получения данных пользователя
       const response = await fetch(
@@ -243,14 +254,18 @@ export class FirebaseService implements OnModuleInit {
         },
       );
 
-      const data = await response.json();
+      const data = (await response.json()) as {
+        localId?: string;
+        email?: string;
+        emailVerified?: boolean;
+      };
 
-      if (response.ok) {
+      if (response.ok && data.localId && data.email) {
         console.log(`✅ Пароль проверен в Firebase для: ${email}`);
         return {
           uid: data.localId,
           email: data.email,
-          emailVerified: data.emailVerified,
+          emailVerified: data.emailVerified || false,
         };
       } else {
         console.log(`❌ Неверный пароль в Firebase для: ${email}`);

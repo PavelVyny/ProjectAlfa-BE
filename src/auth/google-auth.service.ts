@@ -17,7 +17,7 @@ export class GoogleAuthService {
       });
 
       const payload = ticket.getPayload();
-      
+
       if (!payload) {
         throw new Error('Invalid Google token');
       }

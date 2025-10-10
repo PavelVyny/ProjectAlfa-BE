@@ -5,11 +5,19 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcryptjs';
+// import * as bcrypt from 'bcryptjs'; // Not used anymore - passwords stored in Firebase only
 import { PrismaService } from '../prisma/prisma.service';
 import { FirebaseService } from '../firebase/firebase.service';
 import { GoogleAuthService } from './google-auth.service';
-import { RegisterDto, LoginDto, GoogleAuthDto, AuthResponseDto, SendPasswordResetDto, ChangePasswordDto, ChangePasswordResponseDto } from './dto/auth.dto';
+import {
+  RegisterDto,
+  LoginDto,
+  GoogleAuthDto,
+  AuthResponseDto,
+  SendPasswordResetDto,
+  ChangePasswordDto,
+  ChangePasswordResponseDto,
+} from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -106,7 +114,10 @@ export class AuthService {
     const { email, password } = loginDto;
 
     // Проверяем пароль в Firebase
-    const firebaseUser = await this.firebaseService.verifyPasswordAndGetUser(email, password);
+    const firebaseUser = await this.firebaseService.verifyPasswordAndGetUser(
+      email,
+      password,
+    );
     if (!firebaseUser) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -169,7 +180,8 @@ export class AuthService {
 
     try {
       // Верифицируем Google токен
-      const googleUser = await this.googleAuthService.verifyGoogleToken(credential);
+      const googleUser =
+        await this.googleAuthService.verifyGoogleToken(credential);
 
       if (!googleUser.email || !googleUser.emailVerified) {
         throw new UnauthorizedException('Google email not verified or missing');
@@ -178,10 +190,7 @@ export class AuthService {
       // Ищем существующего пользователя по email или googleId
       let user = await this.prisma.user.findFirst({
         where: {
-          OR: [
-            { email: googleUser.email },
-            { googleId: googleUser.googleId },
-          ],
+          OR: [{ email: googleUser.email }, { googleId: googleUser.googleId }],
         },
       });
 
@@ -198,29 +207,37 @@ export class AuthService {
       } else {
         // Создаем нового пользователя
         let firebaseUid: string | null = null;
-        
+
         try {
           // Проверяем, существует ли пользователь в Firebase
-          const firebaseUserExists = await this.firebaseService.userExists(googleUser.email);
-          
+          const firebaseUserExists = await this.firebaseService.userExists(
+            googleUser.email,
+          );
+
           if (!firebaseUserExists) {
             // Создаем пользователя в Firebase без пароля (только email)
-            const displayName = googleUser.firstName && googleUser.lastName 
-              ? `${googleUser.firstName} ${googleUser.lastName}` 
-              : undefined;
-            
+            const displayName =
+              googleUser.firstName && googleUser.lastName
+                ? `${googleUser.firstName} ${googleUser.lastName}`
+                : undefined;
+
             firebaseUid = await this.firebaseService.createUserWithoutPassword(
               googleUser.email,
               displayName,
-              googleUser.avatar
+              googleUser.avatar,
             );
-            
-            console.log(`✅ Google пользователь создан в Firebase с UID: ${firebaseUid}`);
+
+            console.log(
+              `✅ Google пользователь создан в Firebase с UID: ${firebaseUid}`,
+            );
           } else {
             // Если пользователь уже существует в Firebase, получаем его UID
-            const existingFirebaseUser = await this.firebaseService.getUserByEmail(googleUser.email);
+            const existingFirebaseUser =
+              await this.firebaseService.getUserByEmail(googleUser.email);
             firebaseUid = existingFirebaseUser?.uid || null;
-            console.log(`✅ Google пользователь уже существует в Firebase с UID: ${firebaseUid}`);
+            console.log(
+              `✅ Google пользователь уже существует в Firebase с UID: ${firebaseUid}`,
+            );
           }
         } catch (firebaseError) {
           console.error('❌ Ошибка при работе с Firebase:', firebaseError);
@@ -232,16 +249,19 @@ export class AuthService {
           data: {
             email: googleUser.email,
             googleId: googleUser.googleId,
-            nickname: googleUser.firstName && googleUser.lastName 
-              ? `${googleUser.firstName} ${googleUser.lastName}` 
-              : undefined, // Создаем nickname из имени и фамилии Google
+            nickname:
+              googleUser.firstName && googleUser.lastName
+                ? `${googleUser.firstName} ${googleUser.lastName}`
+                : undefined, // Создаем nickname из имени и фамилии Google
             avatar: googleUser.avatar,
             firebaseUid, // Привязываем к Firebase UID если удалось создать
             // password остается null для Google пользователей
           },
         });
 
-        console.log(`✅ Google пользователь создан в PostgreSQL с ID: ${user.id}`);
+        console.log(
+          `✅ Google пользователь создан в PostgreSQL с ID: ${user.id}`,
+        );
       }
 
       // Генерируем JWT токен
@@ -264,7 +284,9 @@ export class AuthService {
     }
   }
 
-  async sendPasswordReset(sendPasswordResetDto: SendPasswordResetDto): Promise<{ message: string }> {
+  async sendPasswordReset(
+    sendPasswordResetDto: SendPasswordResetDto,
+  ): Promise<{ message: string }> {
     const { email } = sendPasswordResetDto;
 
     // Проверяем, существует ли пользователь в PostgreSQL
@@ -274,32 +296,49 @@ export class AuthService {
 
     if (!user) {
       // Для безопасности не сообщаем, что пользователь не найден
-      return { message: 'If a user with this email exists, a password reset email has been sent' };
+      return {
+        message:
+          'If a user with this email exists, a password reset email has been sent',
+      };
     }
 
     // Проверяем, что у пользователя есть пароль (не Google-пользователь)
     if (!user.password) {
       // Проверяем, является ли пользователь Google-пользователем
       if (user.googleId) {
-        return { message: 'Google users cannot reset their password. Please use Google to sign in.' };
+        return {
+          message:
+            'Google users cannot reset their password. Please use Google to sign in.',
+        };
       }
-      return { message: 'If a user with this email exists, a password reset email has been sent' };
+      return {
+        message:
+          'If a user with this email exists, a password reset email has been sent',
+      };
     }
 
     try {
       // Отправляем письмо сброса пароля через Firebase
       await this.firebaseService.sendPasswordResetEmail(email);
-      
-      return { message: 'Password reset email has been sent to your email address' };
+
+      return {
+        message: 'Password reset email has been sent to your email address',
+      };
     } catch (error) {
       console.error('❌ Ошибка отправки письма сброса пароля:', error);
-      
+
       // В случае ошибки не раскрываем детали для безопасности
-      return { message: 'If a user with this email exists, a password reset email has been sent' };
+      return {
+        message:
+          'If a user with this email exists, a password reset email has been sent',
+      };
     }
   }
 
-  async changePassword(userId: string, changePasswordDto: ChangePasswordDto): Promise<ChangePasswordResponseDto> {
+  async changePassword(
+    userId: string,
+    changePasswordDto: ChangePasswordDto,
+  ): Promise<ChangePasswordResponseDto> {
     const { currentPassword, newPassword } = changePasswordDto;
 
     // Находим пользователя
@@ -317,15 +356,23 @@ export class AuthService {
     }
 
     // Проверяем текущий пароль в Firebase
-    const isCurrentPasswordValid = await this.firebaseService.verifyPassword(user.email, currentPassword);
+    const isCurrentPasswordValid = await this.firebaseService.verifyPassword(
+      user.email,
+      currentPassword,
+    );
     if (!isCurrentPasswordValid) {
       throw new UnauthorizedException('Current password is incorrect');
     }
 
     try {
       // Обновляем пароль только в Firebase
-      await this.firebaseService.updateUserPassword(user.firebaseUid, newPassword);
-      console.log(`✅ Пароль обновлен в Firebase для пользователя: ${user.email}`);
+      await this.firebaseService.updateUserPassword(
+        user.firebaseUid,
+        newPassword,
+      );
+      console.log(
+        `✅ Пароль обновлен в Firebase для пользователя: ${user.email}`,
+      );
 
       return { message: 'Password changed successfully' };
     } catch (error) {

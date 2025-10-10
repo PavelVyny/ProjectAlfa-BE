@@ -1,6 +1,22 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, GoogleAuthDto, AuthResponseDto, SendPasswordResetDto, ChangePasswordDto, ChangePasswordResponseDto } from './dto/auth.dto';
+import {
+  RegisterDto,
+  LoginDto,
+  GoogleAuthDto,
+  AuthResponseDto,
+  SendPasswordResetDto,
+  ChangePasswordDto,
+  ChangePasswordResponseDto,
+} from './dto/auth.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')
@@ -20,13 +36,17 @@ export class AuthController {
 
   @Post('google')
   @HttpCode(HttpStatus.OK)
-  async googleAuth(@Body() googleAuthDto: GoogleAuthDto): Promise<AuthResponseDto> {
+  async googleAuth(
+    @Body() googleAuthDto: GoogleAuthDto,
+  ): Promise<AuthResponseDto> {
     return this.authService.googleAuth(googleAuthDto);
   }
 
   @Post('send-password-reset')
   @HttpCode(HttpStatus.OK)
-  async sendPasswordReset(@Body() sendPasswordResetDto: SendPasswordResetDto): Promise<{ message: string }> {
+  async sendPasswordReset(
+    @Body() sendPasswordResetDto: SendPasswordResetDto,
+  ): Promise<{ message: string }> {
     return this.authService.sendPasswordReset(sendPasswordResetDto);
   }
 
@@ -34,8 +54,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async changePassword(
-    @Request() req: any,
-    @Body() changePasswordDto: ChangePasswordDto
+    @Request() req: { user: { sub: string } },
+    @Body() changePasswordDto: ChangePasswordDto,
   ): Promise<ChangePasswordResponseDto> {
     return this.authService.changePassword(req.user.sub, changePasswordDto);
   }
