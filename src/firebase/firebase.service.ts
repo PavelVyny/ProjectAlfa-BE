@@ -125,4 +125,140 @@ export class FirebaseService implements OnModuleInit {
       );
     }
   }
+
+  async getUserByUid(uid: string) {
+    try {
+      const userRecord = await this.firebaseApp.auth().getUser(uid);
+      return userRecord;
+    } catch (error) {
+      console.error('❌ Ошибка получения пользователя по UID из Firebase:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(
+        `Не удалось получить пользователя по UID из Firebase: ${errorMessage}`,
+      );
+    }
+  }
+
+  async sendPasswordResetEmail(email: string): Promise<void> {
+    try {
+      // Firebase Admin SDK не имеет прямого метода для отправки письма сброса пароля
+      // Это делается через Firebase Auth REST API
+      const response = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${process.env.FIREBASE_WEB_API_KEY}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            requestType: 'PASSWORD_RESET',
+            email: email,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to send password reset email');
+      }
+
+      console.log(`✅ Письмо сброса пароля отправлено на: ${email}`);
+    } catch (error) {
+      console.error('❌ Ошибка отправки письма сброса пароля:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(
+        `Не удалось отправить письмо сброса пароля: ${errorMessage}`,
+      );
+    }
+  }
+
+  async updateUserPassword(uid: string, newPassword: string): Promise<void> {
+    try {
+      await this.firebaseApp.auth().updateUser(uid, {
+        password: newPassword,
+      });
+
+      console.log(`✅ Пароль обновлен в Firebase для UID: ${uid}`);
+    } catch (error) {
+      console.error('❌ Ошибка обновления пароля в Firebase:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(
+        `Не удалось обновить пароль в Firebase: ${errorMessage}`,
+      );
+    }
+  }
+
+  async verifyPassword(email: string, password: string): Promise<boolean> {
+    try {
+      // Используем Firebase REST API для проверки пароля
+      const response = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${process.env.FIREBASE_WEB_API_KEY}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: email,
+            password: password,
+            returnSecureToken: true,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log(`✅ Пароль проверен в Firebase для: ${email}`);
+        return true;
+      } else {
+        console.log(`❌ Неверный пароль в Firebase для: ${email}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Ошибка проверки пароля в Firebase:', error);
+      return false;
+    }
+  }
+
+  async verifyPasswordAndGetUser(email: string, password: string): Promise<any> {
+    try {
+      // Используем Firebase REST API для проверки пароля и получения данных пользователя
+      const response = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${process.env.FIREBASE_WEB_API_KEY}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: email,
+            password: password,
+            returnSecureToken: true,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log(`✅ Пароль проверен в Firebase для: ${email}`);
+        return {
+          uid: data.localId,
+          email: data.email,
+          emailVerified: data.emailVerified,
+        };
+      } else {
+        console.log(`❌ Неверный пароль в Firebase для: ${email}`);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Ошибка проверки пароля в Firebase:', error);
+      return null;
+    }
+  }
 }

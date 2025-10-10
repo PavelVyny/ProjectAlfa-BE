@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,22 +7,39 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Модель пользователя
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String?  // Сделаем опциональным для Google пользователей
-  firebaseUid String? @unique // ID пользователя в Firebase
-  googleId  String?  @unique // ID пользователя в Google
-  firstName String?
-  lastName  String?
-  avatar    String?  // URL аватара от Google
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String         @id @default(cuid())
+  email        String         @unique
+  password     String?
+  firebaseUid  String?        @unique
+  googleId     String?        @unique
+  nickname     String?
+  avatar       String?
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  RefreshToken RefreshToken[]
 
-  // Индексы для быстрого поиска
   @@index([email])
   @@index([firebaseUid])
   @@index([googleId])
+}
+
+model RefreshToken {
+  id        String   @id
+  userId    String
+  tokenHash String   @unique
+  userAgent String?
+  ipAddress String?
+  deviceId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  expiresAt DateTime
+  isActive  Boolean  @default(true)
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([isActive])
+  @@index([tokenHash])
+  @@index([userId])
 }
