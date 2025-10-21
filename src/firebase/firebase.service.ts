@@ -4,6 +4,9 @@ import * as admin from 'firebase-admin';
 @Injectable()
 export class FirebaseService implements OnModuleInit {
   private firebaseApp: admin.app.App;
+  private readonly FIREBASE_IDENTITY_TOOLKIT_BASE_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
+  private readonly FIREBASE_SEND_OOB_CODE_ENDPOINT = 'sendOobCode';
+  private readonly FIREBASE_SIGN_IN_ENDPOINT = 'signInWithPassword';
 
   async onModuleInit() {
     await new Promise((resolve) => setTimeout(resolve, 0)); // Добавляем await
@@ -153,7 +156,7 @@ export class FirebaseService implements OnModuleInit {
       // Firebase Admin SDK не имеет прямого метода для отправки письма сброса пароля
       // Это делается через Firebase Auth REST API
       const response = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${process.env.FIREBASE_WEB_API_KEY}`,
+        `${this.FIREBASE_IDENTITY_TOOLKIT_BASE_URL}:${this.FIREBASE_SEND_OOB_CODE_ENDPOINT}?key=${process.env.FIREBASE_WEB_API_KEY}`,
         {
           method: 'POST',
           headers: {
@@ -206,7 +209,7 @@ export class FirebaseService implements OnModuleInit {
     try {
       // Используем Firebase REST API для проверки пароля
       const response = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${process.env.FIREBASE_WEB_API_KEY}`,
+        `${this.FIREBASE_IDENTITY_TOOLKIT_BASE_URL}:${this.FIREBASE_SIGN_IN_ENDPOINT}?key=${process.env.FIREBASE_WEB_API_KEY}`,
         {
           method: 'POST',
           headers: {
@@ -240,7 +243,7 @@ export class FirebaseService implements OnModuleInit {
     try {
       // Используем Firebase REST API для проверки пароля и получения данных пользователя
       const response = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${process.env.FIREBASE_WEB_API_KEY}`,
+        `${this.FIREBASE_IDENTITY_TOOLKIT_BASE_URL}:${this.FIREBASE_SIGN_IN_ENDPOINT}?key=${process.env.FIREBASE_WEB_API_KEY}`,
         {
           method: 'POST',
           headers: {
