@@ -1,7 +1,7 @@
 # Node.js
 node_modules/
-dist/
 build/
+dist/
 .env
 .env.* # например .env.development, .env.production
 
@@ -35,3 +35,4 @@ public/
 
 # Optional: Swagger JSON
 swagger.json
+/generated/prisma
