@@ -4,6 +4,9 @@ import * as admin from 'firebase-admin';
 @Injectable()
 export class FirebaseService implements OnModuleInit {
   private firebaseApp: admin.app.App;
+  private readonly FIREBASE_IDENTITY_TOOLKIT_BASE_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
+  private readonly FIREBASE_SEND_OOB_CODE_ENDPOINT = 'sendOobCode';
+  private readonly FIREBASE_SIGN_IN_ENDPOINT = 'signInWithPassword';
 
   async onModuleInit() {
     await new Promise((resolve) => setTimeout(resolve, 0)); // Добавляем await
@@ -53,10 +56,15 @@ export class FirebaseService implements OnModuleInit {
         emailVerified: true, // Google email уже верифицирован
         disabled: false,
       });
-      console.log(`✅ Google пользователь создан в Firebase без пароля: ${userRecord.uid}`);
+      console.log(
+        `✅ Google пользователь создан в Firebase без пароля: ${userRecord.uid}`,
+      );
       return userRecord.uid;
     } catch (error) {
-      console.error('❌ Ошибка создания Google пользователя в Firebase:', error);
+      console.error(
+        '❌ Ошибка создания Google пользователя в Firebase:',
+        error,
+      );
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
       throw new Error(
@@ -123,6 +131,152 @@ export class FirebaseService implements OnModuleInit {
       throw new Error(
         `Не удалось получить пользователя по email из Firebase: ${errorMessage}`,
       );
+    }
+  }
+
+  async getUserByUid(uid: string) {
+    try {
+      const userRecord = await this.firebaseApp.auth().getUser(uid);
+      return userRecord;
+    } catch (error) {
+      console.error(
+        '❌ Ошибка получения пользователя по UID из Firebase:',
+        error,
+      );
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(
+        `Не удалось получить пользователя по UID из Firebase: ${errorMessage}`,
+      );
+    }
+  }
+
+  async sendPasswordResetEmail(email: string): Promise<void> {
+    try {
+      // Firebase Admin SDK не имеет прямого метода для отправки письма сброса пароля
+      // Это делается через Firebase Auth REST API
+      const response = await fetch(
+        `${this.FIREBASE_IDENTITY_TOOLKIT_BASE_URL}:${this.FIREBASE_SEND_OOB_CODE_ENDPOINT}?key=${process.env.FIREBASE_WEB_API_KEY}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            requestType: 'PASSWORD_RESET',
+            email: email,
+          }),
+        },
+      );
+
+      const data = (await response.json()) as {
+        error?: { message?: string };
+      };
+
+      if (!response.ok) {
+        throw new Error(
+          data.error?.message || 'Failed to send password reset email',
+        );
+      }
+
+      console.log(`✅ Письмо сброса пароля отправлено на: ${email}`);
+    } catch (error) {
+      console.error('❌ Ошибка отправки письма сброса пароля:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(
+        `Не удалось отправить письмо сброса пароля: ${errorMessage}`,
+      );
+    }
+  }
+
+  async updateUserPassword(uid: string, newPassword: string): Promise<void> {
+    try {
+      await this.firebaseApp.auth().updateUser(uid, {
+        password: newPassword,
+      });
+
+      console.log(`✅ Пароль обновлен в Firebase для UID: ${uid}`);
+    } catch (error) {
+      console.error('❌ Ошибка обновления пароля в Firebase:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Не удалось обновить пароль в Firebase: ${errorMessage}`);
+    }
+  }
+
+  async verifyPassword(email: string, password: string): Promise<boolean> {
+    try {
+      // Используем Firebase REST API для проверки пароля
+      const response = await fetch(
+        `${this.FIREBASE_IDENTITY_TOOLKIT_BASE_URL}:${this.FIREBASE_SIGN_IN_ENDPOINT}?key=${process.env.FIREBASE_WEB_API_KEY}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: email,
+            password: password,
+            returnSecureToken: true,
+          }),
+        },
+      );
+
+      if (response.ok) {
+        console.log(`✅ Пароль проверен в Firebase для: ${email}`);
+        return true;
+      } else {
+        console.log(`❌ Неверный пароль в Firebase для: ${email}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Ошибка проверки пароля в Firebase:', error);
+      return false;
+    }
+  }
+
+  async verifyPasswordAndGetUser(
+    email: string,
+    password: string,
+  ): Promise<{ uid: string; email: string; emailVerified: boolean } | null> {
+    try {
+      // Используем Firebase REST API для проверки пароля и получения данных пользователя
+      const response = await fetch(
+        `${this.FIREBASE_IDENTITY_TOOLKIT_BASE_URL}:${this.FIREBASE_SIGN_IN_ENDPOINT}?key=${process.env.FIREBASE_WEB_API_KEY}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: email,
+            password: password,
+            returnSecureToken: true,
+          }),
+        },
+      );
+
+      const data = (await response.json()) as {
+        localId?: string;
+        email?: string;
+        emailVerified?: boolean;
+      };
+
+      if (response.ok && data.localId && data.email) {
+        console.log(`✅ Пароль проверен в Firebase для: ${email}`);
+        return {
+          uid: data.localId,
+          email: data.email,
+          emailVerified: data.emailVerified || false,
+        };
+      } else {
+        console.log(`❌ Неверный пароль в Firebase для: ${email}`);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Ошибка проверки пароля в Firebase:', error);
+      return null;
     }
   }
 }
