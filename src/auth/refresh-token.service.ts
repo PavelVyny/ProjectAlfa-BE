@@ -7,6 +7,7 @@ import { RefreshToken } from '@prisma/client';
 // Refresh token creation data
 export interface CreateRefreshTokenData {
   userId: string;
+  email: string;
   userAgent?: string;
   ipAddress?: string;
   deviceId?: string;
@@ -32,7 +33,7 @@ export class RefreshTokenService {
     token: string;
     refreshTokenEntity: RefreshToken;
   }> {
-    const { userId, userAgent, ipAddress, deviceId } = data;
+    const { userId, email, userAgent, ipAddress, deviceId } = data;
 
     // Generate unique token ID for database
     const tokenId = crypto.randomUUID();
@@ -40,7 +41,7 @@ export class RefreshTokenService {
     // Generate JWT refresh token
     const refreshToken = this.jwtService.generateRefreshToken({
       sub: userId,
-      email: '', // Will be set later if needed
+      email,
       tokenId,
       type: 'refresh',
     });
@@ -191,6 +192,7 @@ export class RefreshTokenService {
   async rotateRefreshToken(
     oldTokenId: string,
     userId: string,
+    email: string,
     metadata?: { userAgent?: string; ipAddress?: string; deviceId?: string },
   ): Promise<{
     token: string;
@@ -205,6 +207,7 @@ export class RefreshTokenService {
     // Create new token
     return await this.createRefreshToken({
       userId,
+      email,
       ...metadata,
     });
   }

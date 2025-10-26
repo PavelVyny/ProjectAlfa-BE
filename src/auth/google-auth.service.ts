@@ -12,8 +12,7 @@ export class GoogleAuthService {
   async verifyGoogleToken(token: string): Promise<{
     googleId: string;
     email: string;
-    firstName?: string;
-    lastName?: string;
+    nickname?: string;
     avatar?: string;
     emailVerified: boolean;
   }> {
@@ -29,11 +28,15 @@ export class GoogleAuthService {
         throw new Error('Invalid Google token');
       }
 
+      // Создаём nickname из имени и фамилии Google
+      const nickname =
+        [payload.given_name, payload.family_name].filter(Boolean).join(' ') ||
+        undefined;
+
       return {
         googleId: payload.sub,
         email: payload.email!,
-        firstName: payload.given_name || undefined,
-        lastName: payload.family_name || undefined,
+        nickname,
         avatar: payload.picture || undefined,
         emailVerified: payload.email_verified || false,
       };

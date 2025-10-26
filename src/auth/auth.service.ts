@@ -1,7 +1,6 @@
 import {
   Injectable,
   UnauthorizedException,
-  ConflictException,
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -21,7 +20,6 @@ import {
   ChangePasswordResponseDto,
 } from './dto/auth.dto';
 import {
-  InvalidCredentialsException,
   UserAlreadyExistsException,
   UserNotFoundException,
   InvalidRefreshTokenException,
@@ -81,6 +79,7 @@ export class AuthService {
       const { token: refreshToken } =
         await this.refreshTokenService.createRefreshToken({
           userId: user.id,
+          email: user.email,
         });
 
       return {
@@ -89,8 +88,8 @@ export class AuthService {
         user: {
           id: user.id,
           email: user.email,
-          nickname: user.nickname || undefined,
-          googleId: user.googleId || undefined,
+          nickname: user.nickname ?? undefined,
+          googleId: user.googleId ?? undefined,
         },
       };
     } catch (error) {
@@ -157,6 +156,7 @@ export class AuthService {
     const { token: refreshToken } =
       await this.refreshTokenService.createRefreshToken({
         userId: user.id,
+        email: user.email,
       });
 
     return {
@@ -165,8 +165,8 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
-        nickname: user.nickname || undefined,
-        googleId: user.googleId || undefined,
+        nickname: user.nickname ?? undefined,
+        googleId: user.googleId ?? undefined,
       },
     };
   }
@@ -188,7 +188,7 @@ export class AuthService {
 
       console.log('✅ Google user verified:', {
         email: googleUser.email,
-        name: `${googleUser.firstName} ${googleUser.lastName}`,
+        nickname: googleUser.nickname,
       });
 
       // Step 2: Check if user exists in our database
@@ -204,8 +204,8 @@ export class AuthService {
           where: { id: user.id },
           data: {
             googleId: googleUser.googleId,
-            nickname: user.nickname, // Сохраняем существующий nickname
-            avatar: googleUser.avatar || user.avatar,
+            nickname: user.nickname ?? undefined, // Сохраняем существующий nickname
+            avatar: googleUser.avatar ?? user.avatar ?? undefined,
           },
         });
       } else {
@@ -220,14 +220,9 @@ export class AuthService {
 
           if (!firebaseUserExists) {
             // Создаем пользователя в Firebase без пароля (только email)
-            const displayName =
-              googleUser.firstName && googleUser.lastName
-                ? `${googleUser.firstName} ${googleUser.lastName}`
-                : undefined;
-
             firebaseUid = await this.firebaseService.createUserWithoutPassword(
               googleUser.email,
-              displayName,
+              googleUser.nickname,
               googleUser.avatar,
             );
 
@@ -255,10 +250,7 @@ export class AuthService {
           data: {
             email: googleUser.email,
             googleId: googleUser.googleId,
-            nickname:
-              googleUser.firstName && googleUser.lastName
-                ? `${googleUser.firstName} ${googleUser.lastName}`
-                : undefined, // Создаем nickname из имени и фамилии Google
+            nickname: googleUser.nickname,
             avatar: googleUser.avatar,
             firebaseUid, // Link to Firebase UID if successful
             // password remains null for Google users
@@ -278,6 +270,7 @@ export class AuthService {
       const { token: refreshToken } =
         await this.refreshTokenService.createRefreshToken({
           userId: user.id,
+          email: user.email,
         });
 
       return {
@@ -286,9 +279,9 @@ export class AuthService {
         user: {
           id: user.id,
           email: user.email,
-          nickname: user.nickname || undefined,
-          avatar: user.avatar || undefined,
-          googleId: user.googleId || undefined,
+          nickname: user.nickname ?? undefined,
+          avatar: user.avatar ?? undefined,
+          googleId: user.googleId ?? undefined,
         },
       };
     } catch (error) {
@@ -326,6 +319,7 @@ export class AuthService {
       const { token: newRefreshToken } =
         await this.refreshTokenService.createRefreshToken({
           userId: user.id,
+          email: user.email,
         });
 
       return {

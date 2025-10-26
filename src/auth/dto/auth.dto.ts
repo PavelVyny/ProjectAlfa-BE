@@ -44,9 +44,9 @@ export class RefreshTokenRequestDto {
 export interface UserData {
   id: string;
   email: string;
-  firstName?: string;
-  lastName?: string;
+  nickname?: string;
   avatar?: string;
+  googleId?: string;
 }
 
 // Authentication data for successful auth responses
