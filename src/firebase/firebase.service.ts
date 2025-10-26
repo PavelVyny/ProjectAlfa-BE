@@ -4,7 +4,8 @@ import * as admin from 'firebase-admin';
 @Injectable()
 export class FirebaseService implements OnModuleInit {
   private firebaseApp: admin.app.App;
-  private readonly FIREBASE_IDENTITY_TOOLKIT_BASE_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
+  private readonly FIREBASE_IDENTITY_TOOLKIT_BASE_URL =
+    'https://identitytoolkit.googleapis.com/v1/accounts';
   private readonly FIREBASE_SEND_OOB_CODE_ENDPOINT = 'sendOobCode';
   private readonly FIREBASE_SIGN_IN_ENDPOINT = 'signInWithPassword';
 

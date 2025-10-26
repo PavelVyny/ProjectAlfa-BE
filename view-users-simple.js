@@ -10,11 +10,10 @@ async function viewUsers() {
       select: {
         id: true,
         email: true,
-        firstName: true,
-        lastName: true,
+        nickname: true,
         firebaseUid: true,
-        createdAt: true
-      }
+        createdAt: true,
+      },
     });
 
     if (users.length === 0) {
@@ -23,8 +22,7 @@ async function viewUsers() {
       users.forEach((user, index) => {
         console.log(`👤 ${index + 1}. ${user.email}`);
         console.log(`   ID: ${user.id}`);
-        console.log(`   Имя: ${user.firstName || 'Не указано'}`);
-        console.log(`   Фамилия: ${user.lastName || 'Не указано'}`);
+        console.log(`   Nickname: ${user.nickname || 'Не указано'}`);
         console.log(`   Firebase UID: ${user.firebaseUid || 'Не привязан'}`);
         console.log(`   Создан: ${user.createdAt.toLocaleString('ru-RU')}`);
         console.log('');
