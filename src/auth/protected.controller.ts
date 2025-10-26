@@ -4,8 +4,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 interface AuthenticatedUser {
   id: string;
   email: string;
-  firstName?: string;
-  lastName?: string;
+  nickname?: string;
 }
 
 interface AuthenticatedRequest extends Request {
@@ -22,8 +21,7 @@ export class ProtectedController {
       user: {
         id: req.user.id,
         email: req.user.email,
-        firstName: req.user.firstName,
-        lastName: req.user.lastName,
+        nickname: req.user.nickname,
       },
     };
   }

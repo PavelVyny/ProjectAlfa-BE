@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,24 +7,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String?  // Optional for Google OAuth users
-  firebaseUid String? @unique // Firebase user ID
-  googleId  String?  @unique // Google user ID
-  firstName String?
-  lastName  String?
-  avatar    String?  // Google avatar URL
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String         @id @default(cuid())
+  email        String         @unique
+  password     String?
+  firebaseUid  String?        @unique
+  googleId     String?        @unique
+  nickname     String?
+  avatar       String?
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   // One-to-many relationship with refresh tokens
   refreshTokens RefreshToken[]
 
-  // Indexes for fast lookups
   @@index([email])
   @@index([firebaseUid])
   @@index([googleId])

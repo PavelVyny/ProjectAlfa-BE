@@ -1,5 +1,9 @@
-import { Injectable } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { FirebaseService } from '../firebase/firebase.service';
 import { GoogleAuthService } from './google-auth.service';
@@ -12,6 +16,9 @@ import {
   AuthResponseDto,
   RefreshTokenResponseDto,
   LogoutResponseDto,
+  SendPasswordResetDto,
+  ChangePasswordDto,
+  ChangePasswordResponseDto,
 } from './dto/auth.dto';
 import {
   InvalidCredentialsException,
@@ -33,7 +40,7 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
-    const { email, password, firstName, lastName } = registerDto;
+    const { email, password, nickname } = registerDto;
 
     // Step 1: Check if user already exists in PostgreSQL
     const existingUser = await this.prisma.user.findUnique({
@@ -45,32 +52,22 @@ export class AuthService {
     }
 
     try {
-      // Step 2: Create user in Firebase
-      let firebaseUid: string | null = null;
-      try {
-        const firebaseUserRecord = await this.firebaseService.createUser(
-          email,
-          password,
-          firstName && lastName ? `${firstName} ${lastName}` : undefined,
-        );
-        firebaseUid = firebaseUserRecord;
-        console.log(`✅ User created in Firebase with UID: ${firebaseUid}`);
-      } catch (firebaseError) {
-        console.warn('⚠️ Failed to create user in Firebase:', firebaseError);
-        // Continue without Firebase - we'll still create in PostgreSQL
-      }
+      // Шаг 3: Создаем пользователя в Firebase
+      const displayName = nickname || undefined;
+      const firebaseUid = await this.firebaseService.createUser(
+        email,
+        password,
+        displayName,
+      );
 
-      // Step 3: Hash password
-      const hashedPassword = await bcrypt.hash(password, 12);
-
-      // Step 4: Create user in PostgreSQL
+      // Шаг 4: Создаем пользователя в PostgreSQL с привязкой к Firebase
+      // Пароль НЕ храним в PostgreSQL - только в Firebase
       const user = await this.prisma.user.create({
         data: {
           email,
-          password: hashedPassword,
-          firstName,
-          lastName,
-          firebaseUid,
+          nickname,
+          firebaseUid, // Привязываем к Firebase UID
+          // password остается null - не храним пароли в PostgreSQL
         },
       });
 
@@ -92,8 +89,8 @@ export class AuthService {
         user: {
           id: user.id,
           email: user.email,
-          firstName: user.firstName || undefined,
-          lastName: user.lastName || undefined,
+          nickname: user.nickname || undefined,
+          googleId: user.googleId || undefined,
         },
       };
     } catch (error) {
@@ -117,23 +114,39 @@ export class AuthService {
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
     const { email, password } = loginDto;
 
-    // Find user by email
-    const user = await this.prisma.user.findUnique({
+    // Проверяем пароль в Firebase
+    const firebaseUser = await this.firebaseService.verifyPasswordAndGetUser(
+      email,
+      password,
+    );
+    if (!firebaseUser) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Ищем или создаем пользователя в PostgreSQL
+    let user = await this.prisma.user.findUnique({
       where: { email },
     });
 
     if (!user) {
-      throw new InvalidCredentialsException();
-    }
-
-    // Check password (only if user is not a Google user)
-    if (!user.password) {
-      throw new InvalidCredentialsException();
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new InvalidCredentialsException();
+      // Создаем пользователя в PostgreSQL, если его нет
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          firebaseUid: firebaseUser.uid,
+          // password остается null - не храним пароли в PostgreSQL
+        },
+      });
+      console.log(`✅ Пользователь создан в PostgreSQL: ${user.email}`);
+    } else {
+      // Обновляем Firebase UID, если его нет
+      if (!user.firebaseUid) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { firebaseUid: firebaseUser.uid },
+        });
+        console.log(`✅ Firebase UID обновлен для пользователя: ${user.email}`);
+      }
     }
 
     // Generate tokens (access + refresh)
@@ -152,8 +165,8 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
-        firstName: user.firstName || undefined,
-        lastName: user.lastName || undefined,
+        nickname: user.nickname || undefined,
+        googleId: user.googleId || undefined,
       },
     };
   }
@@ -169,7 +182,7 @@ export class AuthService {
     const { credential } = googleAuthDto;
 
     try {
-      // Step 1: Verify Google credential and get user info
+      // Верифицируем Google токен
       const googleUser =
         await this.googleAuthService.verifyGoogleToken(credential);
 
@@ -185,22 +198,51 @@ export class AuthService {
         },
       });
 
-      // Step 3: Create user if doesn't exist
-      if (!user) {
-        console.log('👤 Creating new Google user in database...');
-
-        // Try to create Firebase user (optional)
+      if (user) {
+        // Обновляем информацию о пользователе, если он уже существует
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            googleId: googleUser.googleId,
+            nickname: user.nickname, // Сохраняем существующий nickname
+            avatar: googleUser.avatar || user.avatar,
+          },
+        });
+      } else {
+        // Создаем нового пользователя
         let firebaseUid: string | null = null;
+
         try {
-          const firebaseUserRecord = await this.firebaseService.createUser(
+          // Проверяем, существует ли пользователь в Firebase
+          const firebaseUserExists = await this.firebaseService.userExists(
             googleUser.email,
-            '', // Empty password for Google users
-            `${googleUser.firstName} ${googleUser.lastName}`,
           );
-          firebaseUid = firebaseUserRecord;
-          console.log(
-            `✅ Google user created in Firebase with UID: ${firebaseUid}`,
-          );
+
+          if (!firebaseUserExists) {
+            // Создаем пользователя в Firebase без пароля (только email)
+            const displayName =
+              googleUser.firstName && googleUser.lastName
+                ? `${googleUser.firstName} ${googleUser.lastName}`
+                : undefined;
+
+            firebaseUid = await this.firebaseService.createUserWithoutPassword(
+              googleUser.email,
+              displayName,
+              googleUser.avatar,
+            );
+
+            console.log(
+              `✅ Google пользователь создан в Firebase с UID: ${firebaseUid}`,
+            );
+          } else {
+            // Если пользователь уже существует в Firebase, получаем его UID
+            const existingFirebaseUser =
+              await this.firebaseService.getUserByEmail(googleUser.email);
+            firebaseUid = existingFirebaseUser?.uid || null;
+            console.log(
+              `✅ Google пользователь уже существует в Firebase с UID: ${firebaseUid}`,
+            );
+          }
         } catch (firebaseError) {
           console.warn(
             '⚠️ Failed to create Google user in Firebase:',
@@ -213,15 +255,19 @@ export class AuthService {
           data: {
             email: googleUser.email,
             googleId: googleUser.googleId,
-            firstName: googleUser.firstName,
-            lastName: googleUser.lastName,
+            nickname:
+              googleUser.firstName && googleUser.lastName
+                ? `${googleUser.firstName} ${googleUser.lastName}`
+                : undefined, // Создаем nickname из имени и фамилии Google
             avatar: googleUser.avatar,
             firebaseUid, // Link to Firebase UID if successful
             // password remains null for Google users
           },
         });
 
-        console.log(`✅ Google user created in PostgreSQL with ID: ${user.id}`);
+        console.log(
+          `✅ Google пользователь создан в PostgreSQL с ID: ${user.id}`,
+        );
       }
 
       // Generate tokens (access + refresh)
@@ -240,9 +286,9 @@ export class AuthService {
         user: {
           id: user.id,
           email: user.email,
-          firstName: user.firstName || undefined,
-          lastName: user.lastName || undefined,
+          nickname: user.nickname || undefined,
           avatar: user.avatar || undefined,
+          googleId: user.googleId || undefined,
         },
       };
     } catch (error) {
@@ -311,6 +357,103 @@ export class AuthService {
       // Even if there's an error, we consider logout successful
       // to prevent information leakage
       return { message: 'Logged out successfully' };
+    }
+  }
+
+  async sendPasswordReset(
+    sendPasswordResetDto: SendPasswordResetDto,
+  ): Promise<{ message: string }> {
+    const { email } = sendPasswordResetDto;
+
+    // Проверяем, существует ли пользователь в PostgreSQL
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      // Для безопасности не сообщаем, что пользователь не найден
+      return {
+        message:
+          'If a user with this email exists, a password reset email has been sent',
+      };
+    }
+
+    // Проверяем, что у пользователя есть пароль (не Google-пользователь)
+    if (!user.password) {
+      // Проверяем, является ли пользователь Google-пользователем
+      if (user.googleId) {
+        return {
+          message:
+            'Google users cannot reset their password. Please use Google to sign in.',
+        };
+      }
+      return {
+        message:
+          'If a user with this email exists, a password reset email has been sent',
+      };
+    }
+
+    try {
+      // Отправляем письмо сброса пароля через Firebase
+      await this.firebaseService.sendPasswordResetEmail(email);
+
+      return {
+        message: 'Password reset email has been sent to your email address',
+      };
+    } catch (error) {
+      console.error('❌ Ошибка отправки письма сброса пароля:', error);
+
+      // В случае ошибки не раскрываем детали для безопасности
+      return {
+        message:
+          'If a user with this email exists, a password reset email has been sent',
+      };
+    }
+  }
+
+  async changePassword(
+    userId: string,
+    changePasswordDto: ChangePasswordDto,
+  ): Promise<ChangePasswordResponseDto> {
+    const { currentPassword, newPassword } = changePasswordDto;
+
+    // Находим пользователя
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Проверяем, что у пользователя есть Firebase UID
+    if (!user.firebaseUid) {
+      throw new BadRequestException('User not linked to Firebase');
+    }
+
+    // Проверяем текущий пароль в Firebase
+    const isCurrentPasswordValid = await this.firebaseService.verifyPassword(
+      user.email,
+      currentPassword,
+    );
+    if (!isCurrentPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    try {
+      // Обновляем пароль только в Firebase
+      await this.firebaseService.updateUserPassword(
+        user.firebaseUid,
+        newPassword,
+      );
+      console.log(
+        `✅ Пароль обновлен в Firebase для пользователя: ${user.email}`,
+      );
+
+      return { message: 'Password changed successfully' };
+    } catch (error) {
+      console.error('❌ Ошибка при изменении пароля:', error);
+      throw new BadRequestException('Failed to change password');
     }
   }
 }
