@@ -206,6 +206,21 @@ export class FirebaseService implements OnModuleInit {
     }
   }
 
+  async updateUserEmail(uid: string, newEmail: string): Promise<void> {
+    try {
+      await this.firebaseApp.auth().updateUser(uid, {
+        email: newEmail,
+      });
+
+      console.log(`✅ Email обновлен в Firebase для UID: ${uid}`);
+    } catch (error) {
+      console.error('❌ Ошибка обновления email в Firebase:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Не удалось обновить email в Firebase: ${errorMessage}`);
+    }
+  }
+
   async verifyPassword(email: string, password: string): Promise<boolean> {
     try {
       // Используем Firebase REST API для проверки пароля

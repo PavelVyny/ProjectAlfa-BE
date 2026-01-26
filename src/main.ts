@@ -3,9 +3,13 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Enable cookie parsing for httpOnly cookies
+  app.use(cookieParser());
 
   // Enable global response formatting and error handling
   app.useGlobalInterceptors(new ResponseInterceptor());

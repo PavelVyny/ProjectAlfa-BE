@@ -90,3 +90,19 @@ export class ChangePasswordDto {
 export class ChangePasswordResponseDto {
   message: string;
 }
+
+export class UpdateProfileDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2, { message: 'Nickname must be at least 2 characters long' })
+  @MaxLength(50, { message: 'Nickname must not exceed 50 characters' })
+  nickname?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+}
+
+export class UpdateProfileResponseDto {
+  user: UserData;
+}

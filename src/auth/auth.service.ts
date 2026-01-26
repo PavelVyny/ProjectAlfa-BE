@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { FirebaseService } from '../firebase/firebase.service';
@@ -18,6 +19,7 @@ import {
   SendPasswordResetDto,
   ChangePasswordDto,
   ChangePasswordResponseDto,
+  UserData,
 } from './dto/auth.dto';
 import {
   UserAlreadyExistsException,
@@ -37,6 +39,10 @@ export class AuthService {
     private refreshTokenService: RefreshTokenService,
   ) {}
 
+  /**
+   * Register a new user
+   * Creates user in Firebase (for auth) and PostgreSQL (for data)
+   */
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
     const { email, password, nickname } = registerDto;
 
@@ -50,7 +56,7 @@ export class AuthService {
     }
 
     try {
-      // Шаг 3: Создаем пользователя в Firebase
+      // Step 3: Create user in Firebase
       const displayName = nickname || undefined;
       const firebaseUid = await this.firebaseService.createUser(
         email,
@@ -58,8 +64,8 @@ export class AuthService {
         displayName,
       );
 
-      // Шаг 4: Создаем пользователя в PostgreSQL с привязкой к Firebase
-      // Пароль НЕ храним в PostgreSQL - только в Firebase
+      // Step 4: Create user in PostgreSQL linked to Firebase
+      // Password is NOT stored in PostgreSQL - only in Firebase
       const user = await this.prisma.user.create({
         data: {
           email,
@@ -110,25 +116,39 @@ export class AuthService {
     }
   }
 
+  /**
+   * Login user
+   * Verifies credentials against Firebase and ensures PostgreSQL user exists
+   */
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
     const { email, password } = loginDto;
 
-    // Проверяем пароль в Firebase
+    // Verify password in Firebase
     const firebaseUser = await this.firebaseService.verifyPasswordAndGetUser(
       email,
       password,
     );
+
     if (!firebaseUser) {
+      console.log('❌ [AUTH SERVICE] Firebase authentication failed', {
+        email,
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Ищем или создаем пользователя в PostgreSQL
+    console.log('✅ [AUTH SERVICE] Firebase authentication successful', {
+      email: firebaseUser.email,
+      uid: firebaseUser.uid,
+    });
+
+    // Find or create user in PostgreSQL
     let user = await this.prisma.user.findUnique({
       where: { email },
     });
 
     if (!user) {
-      // Создаем пользователя в PostgreSQL, если его нет
+      console.log('📝 [AUTH SERVICE] User not found, creating new user...');
+      // Create user in PostgreSQL if not found
       user = await this.prisma.user.create({
         data: {
           email,
@@ -136,15 +156,38 @@ export class AuthService {
           // password остается null - не храним пароли в PostgreSQL
         },
       });
-      console.log(`✅ Пользователь создан в PostgreSQL: ${user.email}`);
+      console.log(
+        `✅ [AUTH SERVICE] User created in PostgreSQL: ${user.email}`,
+        {
+          userId: user.id,
+          firebaseUid: user.firebaseUid,
+        },
+      );
     } else {
-      // Обновляем Firebase UID, если его нет
-      if (!user.firebaseUid) {
+      console.log('👤 [AUTH SERVICE] User found in PostgreSQL', {
+        userId: user.id,
+        currentFirebaseUid: user.firebaseUid,
+        newFirebaseUid: firebaseUser.uid,
+      });
+
+      // Update Firebase UID if missing or changed
+      if (!user.firebaseUid || user.firebaseUid !== firebaseUser.uid) {
+        const oldUid = user.firebaseUid;
+        console.log('🔄 [AUTH SERVICE] Updating Firebase UID...', {
+          oldUid: oldUid || 'none',
+          newUid: firebaseUser.uid,
+        });
         user = await this.prisma.user.update({
           where: { id: user.id },
           data: { firebaseUid: firebaseUser.uid },
         });
-        console.log(`✅ Firebase UID обновлен для пользователя: ${user.email}`);
+        console.log(
+          `✅ [AUTH SERVICE] Firebase UID updated for user: ${user.email}`,
+        );
+      } else {
+        console.log(
+          '✅ [AUTH SERVICE] Firebase UID already matches, no update needed',
+        );
       }
     }
 
@@ -182,7 +225,7 @@ export class AuthService {
     const { credential } = googleAuthDto;
 
     try {
-      // Верифицируем Google токен
+      // Verify Google token
       const googleUser =
         await this.googleAuthService.verifyGoogleToken(credential);
 
@@ -199,7 +242,7 @@ export class AuthService {
       });
 
       if (user) {
-        // Обновляем информацию о пользователе, если он уже существует
+        // Update user info if exists
         user = await this.prisma.user.update({
           where: { id: user.id },
           data: {
@@ -209,17 +252,17 @@ export class AuthService {
           },
         });
       } else {
-        // Создаем нового пользователя
+        // Create new user
         let firebaseUid: string | null = null;
 
         try {
-          // Проверяем, существует ли пользователь в Firebase
+          // Check if user exists in Firebase
           const firebaseUserExists = await this.firebaseService.userExists(
             googleUser.email,
           );
 
           if (!firebaseUserExists) {
-            // Создаем пользователя в Firebase без пароля (только email)
+            // Create user in Firebase without password
             firebaseUid = await this.firebaseService.createUserWithoutPassword(
               googleUser.email,
               googleUser.nickname,
@@ -230,7 +273,7 @@ export class AuthService {
               `✅ Google пользователь создан в Firebase с UID: ${firebaseUid}`,
             );
           } else {
-            // Если пользователь уже существует в Firebase, получаем его UID
+            // If user exists in Firebase, get UID
             const existingFirebaseUser =
               await this.firebaseService.getUserByEmail(googleUser.email);
             firebaseUid = existingFirebaseUser?.uid || null;
@@ -292,29 +335,49 @@ export class AuthService {
 
   // Refresh token method
   async refreshToken(refreshToken: string): Promise<RefreshTokenResponseDto> {
+    const startTime = Date.now();
+
     try {
-      // Validate the refresh token
+      // Step 1: Validate the refresh token
+      // console.log('🔍 [AUTH SERVICE] Validating refresh token...');
       const validation =
         await this.refreshTokenService.validateRefreshToken(refreshToken);
 
       if (!validation.isValid || !validation.refreshToken) {
+        console.log('❌ [AUTH SERVICE] Invalid refresh token', {
+          reason: validation.error || 'Token validation failed',
+        });
         throw new InvalidRefreshTokenException();
       }
 
-      // Get user data
+      console.log('✅ [AUTH SERVICE] Refresh token validated', {
+        userId: validation.userId,
+        tokenId: validation.refreshToken.id,
+      });
+
+      // Step 2: Get user data
       const user = await this.validateUser(validation.userId!);
       if (!user) {
+        console.log('❌ [AUTH SERVICE] User not found', {
+          userId: validation.userId,
+        });
         throw new UserNotFoundException();
       }
 
-      // Create new access token
+      console.log('✅ [AUTH SERVICE] User found', {
+        userId: user.id,
+        email: user.email,
+      });
+
+      // Step 3: Create new access token
       const payload = { email: user.email, sub: user.id };
       const newAccessToken = this.jwtService.generateAccessToken(payload);
 
-      // Create new refresh token and revoke old one
+      // Step 4: Token rotation - revoke old and create new refresh token
       await this.refreshTokenService.revokeRefreshToken(
         validation.refreshToken.id,
       );
+      console.log('🗑️ [AUTH SERVICE] Old refresh token revoked');
 
       const { token: newRefreshToken } =
         await this.refreshTokenService.createRefreshToken({
@@ -322,12 +385,26 @@ export class AuthService {
           email: user.email,
         });
 
+      console.log('🆕 [AUTH SERVICE] New refresh token created');
+
+      const duration = Date.now() - startTime;
+      console.log('✅ [AUTH SERVICE] Token refresh completed successfully', {
+        duration: `${duration}ms`,
+        userId: user.id,
+        timestamp: new Date().toISOString(),
+      });
+
       return {
         access_token: newAccessToken,
         refresh_token: newRefreshToken,
       };
     } catch (error) {
-      console.error('❌ Error refreshing token:', error);
+      const duration = Date.now() - startTime;
+      console.error('❌ [AUTH SERVICE] Token refresh failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        duration: `${duration}ms`,
+        timestamp: new Date().toISOString(),
+      });
       throw new TokenRefreshFailedException();
     }
   }
@@ -359,7 +436,7 @@ export class AuthService {
   ): Promise<{ message: string }> {
     const { email } = sendPasswordResetDto;
 
-    // Проверяем, существует ли пользователь в PostgreSQL
+    // Check if user exists in PostgreSQL
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
@@ -372,9 +449,9 @@ export class AuthService {
       };
     }
 
-    // Проверяем, что у пользователя есть пароль (не Google-пользователь)
+    // Check if user has password (not Google user)
     if (!user.password) {
-      // Проверяем, является ли пользователь Google-пользователем
+      // Check if Google user
       if (user.googleId) {
         return {
           message:
@@ -388,7 +465,7 @@ export class AuthService {
     }
 
     try {
-      // Отправляем письмо сброса пароля через Firebase
+      // Send password reset email via Firebase
       await this.firebaseService.sendPasswordResetEmail(email);
 
       return {
@@ -411,7 +488,7 @@ export class AuthService {
   ): Promise<ChangePasswordResponseDto> {
     const { currentPassword, newPassword } = changePasswordDto;
 
-    // Находим пользователя
+    // Find user
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -420,12 +497,12 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    // Проверяем, что у пользователя есть Firebase UID
+    // Check if user has Firebase UID
     if (!user.firebaseUid) {
       throw new BadRequestException('User not linked to Firebase');
     }
 
-    // Проверяем текущий пароль в Firebase
+    // Verify current password in Firebase
     const isCurrentPasswordValid = await this.firebaseService.verifyPassword(
       user.email,
       currentPassword,
@@ -435,19 +512,94 @@ export class AuthService {
     }
 
     try {
-      // Обновляем пароль только в Firebase
+      // Update password only in Firebase
       await this.firebaseService.updateUserPassword(
         user.firebaseUid,
         newPassword,
       );
-      console.log(
-        `✅ Пароль обновлен в Firebase для пользователя: ${user.email}`,
-      );
+      console.log(`✅ Password updated in Firebase for user: ${user.email}`);
 
       return { message: 'Password changed successfully' };
     } catch (error) {
       console.error('❌ Ошибка при изменении пароля:', error);
       throw new BadRequestException('Failed to change password');
     }
+  }
+
+  async updateProfile(
+    userId: string,
+    updateProfileDto: { nickname?: string; email?: string },
+  ): Promise<UserData> {
+    console.log('📝 [AUTH SERVICE] Updating user profile', {
+      userId,
+      updates: updateProfileDto,
+    });
+
+    // Find user
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UserNotFoundException();
+    }
+
+    // Prepare update data
+    const updateData: { nickname?: string | null; email?: string } = {};
+
+    if (updateProfileDto.nickname !== undefined) {
+      updateData.nickname = updateProfileDto.nickname || null;
+    }
+
+    if (
+      updateProfileDto.email !== undefined &&
+      updateProfileDto.email !== user.email
+    ) {
+      // TypeScript type narrowing: email is definitely string here
+      const newEmail: string = updateProfileDto.email;
+      // Check if email is already taken
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: newEmail },
+      });
+
+      if (existingUser && existingUser.id !== userId) {
+        throw new ConflictException('Email already in use');
+      }
+
+      updateData.email = newEmail;
+
+      // Update email in Firebase if user has Firebase UID
+      if (user.firebaseUid) {
+        try {
+          await this.firebaseService.updateUserEmail(
+            user.firebaseUid,
+            newEmail,
+          );
+          console.log(`✅ Email updated in Firebase for user: ${user.id}`);
+        } catch (error) {
+          console.error('❌ Error updating email in Firebase:', error);
+          throw new BadRequestException('Failed to update email in Firebase');
+        }
+      }
+    }
+
+    // Update user in database
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+    });
+
+    console.log('✅ [AUTH SERVICE] Profile updated successfully', {
+      userId: updatedUser.id,
+      changes: updateData,
+    });
+
+    return {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      nickname: updatedUser.nickname ?? undefined,
+      avatar: updatedUser.avatar ?? undefined,
+      googleId: updatedUser.googleId ?? undefined,
+    };
   }
 }

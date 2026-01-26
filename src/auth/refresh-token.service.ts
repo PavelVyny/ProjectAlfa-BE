@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from './jwt.service';
 import * as bcrypt from 'bcryptjs';
 import { RefreshToken } from '@prisma/client';
+import { parseExpiryToMs } from '../common/utils/date.util';
 
 // Refresh token creation data
 export interface CreateRefreshTokenData {
@@ -49,19 +50,25 @@ export class RefreshTokenService {
     // Hash the token for storage
     const tokenHash = await bcrypt.hash(refreshToken, 12);
 
-    // Calculate expiration date (30 days from now)
+    // Calculate expiration date
+    const refreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN || '30d';
+    const maxAgeMs = parseExpiryToMs(refreshExpiresIn);
+
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
+    expiresAt.setTime(expiresAt.getTime() + maxAgeMs);
 
     // Save to database
+    // CRITICAL FIX: Explicitly set the ID to match the token ID in the JWT
+    // Also use the calculated expiration date
     const refreshTokenEntity = await this.prisma.refreshToken.create({
       data: {
+        id: tokenId, // FIX: Use the generated UUID as the primary key
         userId,
         tokenHash,
         userAgent,
         ipAddress,
         deviceId,
-        expiresAt,
+        expiresAt, // FIX: Use calculated expiration
         isActive: true,
       },
     });
