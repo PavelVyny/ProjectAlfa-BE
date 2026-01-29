@@ -1,0 +1,53 @@
+name: Test and Coverage
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm ci
+
+    - name: Run Unit Tests
+      run: npm run test
+
+    - name: Run Coverage
+      run: npm run test:cov
+
+    # Only run badge generation on main branch
+    - name: Get Coverage Percentage
+      if: github.ref == 'refs/heads/main'
+      id: coverage
+      # Parse json-summary to get total line coverage
+      run: |
+        COVERAGE=$(node -p "require('./coverage/coverage-summary.json').total.lines.pct")
+        echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
+        echo "Detected Coverage: $COVERAGE%"
+
+    - name: Create Coverage Badge
+      uses: schneegans/dynamic-badges-action@v1.7.0
+      if: github.ref == 'refs/heads/main'
+      with:
+        auth: ${{ secrets.GIST_SECRET }}
+        gistID: ${{ secrets.GIST_ID }}
+        filename: coverage.json
+        label: Coverage
+        message: ${{ env.COVERAGE }}%
+        valColorRange: ${{ env.COVERAGE }}
+        maxColorRange: 100
+        minColorRange: 0
+        namedLogo: jest

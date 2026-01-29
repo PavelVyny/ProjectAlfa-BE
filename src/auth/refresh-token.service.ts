@@ -58,17 +58,15 @@ export class RefreshTokenService {
     expiresAt.setTime(expiresAt.getTime() + maxAgeMs);
 
     // Save to database
-    // CRITICAL FIX: Explicitly set the ID to match the token ID in the JWT
-    // Also use the calculated expiration date
     const refreshTokenEntity = await this.prisma.refreshToken.create({
       data: {
-        id: tokenId, // FIX: Use the generated UUID as the primary key
+        id: tokenId,
         userId,
         tokenHash,
         userAgent,
         ipAddress,
         deviceId,
-        expiresAt, // FIX: Use calculated expiration
+        expiresAt,
         isActive: true,
       },
     });

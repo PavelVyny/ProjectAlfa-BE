@@ -1,5 +1,8 @@
-<p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Pavlo/d719ec8a36205f90c6d608c7fe321c83/raw/coverage.json" alt="Coverage Badge" />
 </p>
 
 [circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
