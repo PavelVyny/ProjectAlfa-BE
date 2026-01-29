@@ -9,7 +9,13 @@ export class GoogleAuthService {
     this.client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
   }
 
-  async verifyGoogleToken(token: string) {
+  async verifyGoogleToken(token: string): Promise<{
+    googleId: string;
+    email: string;
+    nickname?: string;
+    avatar?: string;
+    emailVerified: boolean;
+  }> {
     try {
       const ticket = await this.client.verifyIdToken({
         idToken: token,
@@ -22,13 +28,17 @@ export class GoogleAuthService {
         throw new Error('Invalid Google token');
       }
 
+      // Создаём nickname из имени и фамилии Google
+      const nickname =
+        [payload.given_name, payload.family_name].filter(Boolean).join(' ') ||
+        undefined;
+
       return {
         googleId: payload.sub,
-        email: payload.email,
-        firstName: payload.given_name,
-        lastName: payload.family_name,
-        avatar: payload.picture,
-        emailVerified: payload.email_verified,
+        email: payload.email!,
+        nickname,
+        avatar: payload.picture || undefined,
+        emailVerified: payload.email_verified || false,
       };
     } catch (error) {
       console.error('Error verifying Google token:', error);

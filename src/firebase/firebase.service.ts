@@ -4,7 +4,8 @@ import * as admin from 'firebase-admin';
 @Injectable()
 export class FirebaseService implements OnModuleInit {
   private firebaseApp: admin.app.App;
-  private readonly FIREBASE_IDENTITY_TOOLKIT_BASE_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
+  private readonly FIREBASE_IDENTITY_TOOLKIT_BASE_URL =
+    'https://identitytoolkit.googleapis.com/v1/accounts';
   private readonly FIREBASE_SEND_OOB_CODE_ENDPOINT = 'sendOobCode';
   private readonly FIREBASE_SIGN_IN_ENDPOINT = 'signInWithPassword';
 
@@ -202,6 +203,21 @@ export class FirebaseService implements OnModuleInit {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Не удалось обновить пароль в Firebase: ${errorMessage}`);
+    }
+  }
+
+  async updateUserEmail(uid: string, newEmail: string): Promise<void> {
+    try {
+      await this.firebaseApp.auth().updateUser(uid, {
+        email: newEmail,
+      });
+
+      console.log(`✅ Email обновлен в Firebase для UID: ${uid}`);
+    } catch (error) {
+      console.error('❌ Ошибка обновления email в Firebase:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Не удалось обновить email в Firebase: ${errorMessage}`);
     }
   }
 

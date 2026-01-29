@@ -34,15 +34,43 @@ export class GoogleAuthDto {
   credential: string; // JWT токен от Google
 }
 
-export class AuthResponseDto {
+// Request DTO for refresh token endpoint
+export class RefreshTokenRequestDto {
+  @IsString()
+  refresh_token: string;
+}
+
+// User data structure for responses
+export interface UserData {
+  id: string;
+  email: string;
+  nickname?: string;
+  avatar?: string;
+  googleId?: string;
+}
+
+// Authentication data for successful auth responses
+export interface AuthData {
   access_token: string;
-  user: {
-    id: string;
-    email: string;
-    nickname?: string;
-    avatar?: string;
-    googleId?: string;
-  };
+  refresh_token: string;
+  user: UserData;
+}
+
+// Refresh token data for refresh responses
+export interface RefreshTokenData {
+  access_token: string;
+  refresh_token: string;
+}
+
+// Response types - interceptor will wrap these in ApiResponse format
+export type AuthResponseDto = AuthData;
+export type RefreshTokenResponseDto = RefreshTokenData;
+export type LogoutResponseDto = { message: string };
+
+// Request DTO for logout endpoint
+export class LogoutDto {
+  @IsString()
+  refresh_token: string;
 }
 
 export class SendPasswordResetDto {
@@ -61,4 +89,20 @@ export class ChangePasswordDto {
 
 export class ChangePasswordResponseDto {
   message: string;
+}
+
+export class UpdateProfileDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2, { message: 'Nickname must be at least 2 characters long' })
+  @MaxLength(50, { message: 'Nickname must not exceed 50 characters' })
+  nickname?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+}
+
+export class UpdateProfileResponseDto {
+  user: UserData;
 }
