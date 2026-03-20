@@ -46,7 +46,7 @@ export class AuthController {
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true, // Prevents JavaScript access (XSS protection)
       secure: isProduction, // HTTPS only in production
-      sameSite: 'strict', // CSRF protection
+      sameSite: isProduction ? 'strict' : 'none', // strict in prod, none for cross-port dev
       maxAge: maxAgeMs, // Use environment variable
       path: '/', // Available across entire domain
     });
@@ -62,10 +62,11 @@ export class AuthController {
    * Helper method to clear refresh token cookie
    */
   private clearRefreshTokenCookie(res: Response): void {
+    const isProduction = process.env.NODE_ENV === 'production';
     res.clearCookie('refresh_token', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'none',
       path: '/',
     });
 

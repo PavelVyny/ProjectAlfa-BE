@@ -26,8 +26,7 @@ async function bootstrap() {
 
   // Настраиваем CORS для продакшена и разработки
   const allowedOrigins = [
-    'http://localhost:3000', // Фронтенд разработка
-    'http://localhost:3001', // Бэкенд разработка
+    'http://localhost:3001', // Фронтенд разработка
     'https://project-alfa-fe-two.vercel.app', // Продакшен фронтенд
   ];
 
@@ -38,7 +37,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const port = process.env.PORT || 3001;
+  const port = process.env.PORT || 4000;
   const host = '0.0.0.0';
 
   console.log(`🚀 Application starting on ${host}:${port}`);
