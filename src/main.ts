@@ -24,14 +24,25 @@ async function bootstrap() {
     }),
   );
 
-  // Настраиваем CORS для продакшена и разработки
-  const allowedOrigins = [
-    'http://localhost:3001', // Фронтенд разработка
-    'https://project-alfa-fe-two.vercel.app', // Продакшен фронтенд
-  ];
-
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      const allowed = [
+        'http://localhost:3001',
+        'https://project-alfa-fe-two.vercel.app',
+      ];
+      if (
+        !origin ||
+        allowed.includes(origin) ||
+        /\.vercel\.app$/.test(origin)
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked: ${origin}`));
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true,
