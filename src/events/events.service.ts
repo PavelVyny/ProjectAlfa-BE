@@ -6,8 +6,14 @@ import { CreateEventDto } from '../admin/dto/admin-events.dto';
 import { UpdateEventDto } from '../admin/dto/admin-events.dto';
 import { UpdateEventStatusDto } from '../admin/dto/admin-events.dto';
 
+export type EventWithCapacity = Prisma.EventGetPayload<
+  Record<string, never>
+> & {
+  remaining_capacity: number;
+};
+
 export interface EventsPaginatedResult {
-  data: Prisma.EventGetPayload<Record<string, never>>[];
+  data: EventWithCapacity[];
   meta: {
     total: number;
     page: number;
@@ -59,8 +65,29 @@ export class EventsService {
       this.prisma.event.count({ where }),
     ]);
 
+    // Avoid N+1: fetch aggregated booking sums for all event IDs in one query
+    const eventIds = events.map((e) => e.id);
+    const bookingSums = eventIds.length
+      ? await this.prisma.booking.groupBy({
+          by: ['eventId'],
+          _sum: { participant_count: true },
+          where: { eventId: { in: eventIds } },
+        })
+      : [];
+
+    // Build a lookup map: eventId -> total booked seats
+    const bookedMap = new Map<string, number>(
+      bookingSums.map((b) => [b.eventId, b._sum.participant_count ?? 0]),
+    );
+
+    // Merge remaining_capacity into each event
+    const data: EventWithCapacity[] = events.map((event) => ({
+      ...event,
+      remaining_capacity: event.capacity - (bookedMap.get(event.id) ?? 0),
+    }));
+
     return {
-      data: events,
+      data,
       meta: {
         total,
         page,
@@ -70,9 +97,7 @@ export class EventsService {
     };
   }
 
-  async findOne(
-    id: string,
-  ): Promise<Prisma.EventGetPayload<Record<string, never>>> {
+  async findOne(id: string): Promise<EventWithCapacity> {
     const event = await this.prisma.event.findUnique({
       where: { id },
     });
@@ -82,7 +107,17 @@ export class EventsService {
       throw new NotFoundException(`Event with id "${id}" not found`);
     }
 
-    return event;
+    // Single aggregate for remaining capacity
+    const agg = await this.prisma.booking.aggregate({
+      where: { eventId: id },
+      _sum: { participant_count: true },
+    });
+    const bookedSeats = agg._sum.participant_count ?? 0;
+
+    return {
+      ...event,
+      remaining_capacity: event.capacity - bookedSeats,
+    };
   }
 
   // ── Admin methods (all statuses, all events) ────────────────────────────
@@ -122,8 +157,27 @@ export class EventsService {
       this.prisma.event.count({ where }),
     ]);
 
+    // Avoid N+1: fetch aggregated booking sums for all event IDs in one query
+    const eventIds = events.map((e) => e.id);
+    const bookingSums = eventIds.length
+      ? await this.prisma.booking.groupBy({
+          by: ['eventId'],
+          _sum: { participant_count: true },
+          where: { eventId: { in: eventIds } },
+        })
+      : [];
+
+    const bookedMap = new Map<string, number>(
+      bookingSums.map((b) => [b.eventId, b._sum.participant_count ?? 0]),
+    );
+
+    const data: EventWithCapacity[] = events.map((event) => ({
+      ...event,
+      remaining_capacity: event.capacity - (bookedMap.get(event.id) ?? 0),
+    }));
+
     return {
-      data: events,
+      data,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }

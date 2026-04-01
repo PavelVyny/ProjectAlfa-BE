@@ -28,6 +28,7 @@ const mockEvent = {
   image_url: null,
   createdAt: new Date(),
   updatedAt: new Date(),
+  remaining_capacity: 100,
 };
 
 const mockPaginatedResult: EventsPaginatedResult = {

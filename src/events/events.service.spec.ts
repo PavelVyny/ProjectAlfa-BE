@@ -30,6 +30,10 @@ describe('EventsService', () => {
       count: jest.Mock;
       findUnique: jest.Mock;
     };
+    booking: {
+      groupBy: jest.Mock;
+      aggregate: jest.Mock;
+    };
     $transaction: jest.Mock;
   };
 
@@ -39,6 +43,12 @@ describe('EventsService', () => {
         findMany: jest.fn(),
         count: jest.fn(),
         findUnique: jest.fn(),
+      },
+      booking: {
+        groupBy: jest.fn().mockResolvedValue([]),
+        aggregate: jest
+          .fn()
+          .mockResolvedValue({ _sum: { participant_count: null } }),
       },
       $transaction: jest.fn(),
     };
@@ -62,10 +72,12 @@ describe('EventsService', () => {
   describe('findAll', () => {
     it('returns paginated events with meta when no filters provided', async () => {
       mockPrismaService.$transaction.mockResolvedValue([[mockEvent], 1]);
+      mockPrismaService.booking.groupBy.mockResolvedValue([]);
 
       const result = await service.findAll({});
 
-      expect(result.data).toEqual([mockEvent]);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]).toMatchObject({ id: mockEvent.id });
       expect(result.meta).toEqual({
         total: 1,
         page: 1,
@@ -135,6 +147,34 @@ describe('EventsService', () => {
       expect(Array.isArray(callArg)).toBe(true);
       expect(callArg).toHaveLength(2);
     });
+
+    it('adds remaining_capacity = capacity when no bookings exist', async () => {
+      mockPrismaService.$transaction.mockResolvedValue([[mockEvent], 1]);
+      mockPrismaService.booking.groupBy.mockResolvedValue([]); // no bookings
+
+      const result = await service.findAll({});
+
+      expect(result.data[0].remaining_capacity).toBe(mockEvent.capacity); // 250
+    });
+
+    it('adds remaining_capacity accounting for existing bookings', async () => {
+      mockPrismaService.$transaction.mockResolvedValue([[mockEvent], 1]);
+      mockPrismaService.booking.groupBy.mockResolvedValue([
+        { eventId: mockEvent.id, _sum: { participant_count: 100 } },
+      ]);
+
+      const result = await service.findAll({});
+
+      expect(result.data[0].remaining_capacity).toBe(150); // 250 - 100
+    });
+
+    it('skips groupBy call when result set is empty', async () => {
+      mockPrismaService.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findAll({});
+
+      expect(mockPrismaService.booking.groupBy).not.toHaveBeenCalled();
+    });
   });
 
   // ── findOne ─────────────────────────────────────────────────────────────
@@ -142,10 +182,13 @@ describe('EventsService', () => {
   describe('findOne', () => {
     it('returns event when found and status is PUBLISHED', async () => {
       mockPrismaService.event.findUnique.mockResolvedValue(mockEvent);
+      mockPrismaService.booking.aggregate.mockResolvedValue({
+        _sum: { participant_count: null },
+      });
 
       const result = await service.findOne('seed-evt-music-neon');
 
-      expect(result).toEqual(mockEvent);
+      expect(result).toMatchObject({ id: mockEvent.id });
     });
 
     it('throws NotFoundException when event not found (null from findUnique)', async () => {
@@ -172,6 +215,28 @@ describe('EventsService', () => {
       await expect(service.findOne('seed-evt-music-neon')).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('adds remaining_capacity = capacity when no bookings exist', async () => {
+      mockPrismaService.event.findUnique.mockResolvedValue(mockEvent);
+      mockPrismaService.booking.aggregate.mockResolvedValue({
+        _sum: { participant_count: null },
+      });
+
+      const result = await service.findOne(mockEvent.id);
+
+      expect(result.remaining_capacity).toBe(250);
+    });
+
+    it('adds remaining_capacity accounting for existing bookings', async () => {
+      mockPrismaService.event.findUnique.mockResolvedValue(mockEvent);
+      mockPrismaService.booking.aggregate.mockResolvedValue({
+        _sum: { participant_count: 75 },
+      });
+
+      const result = await service.findOne(mockEvent.id);
+
+      expect(result.remaining_capacity).toBe(175); // 250 - 75
     });
   });
 });
