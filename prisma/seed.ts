@@ -1,6 +1,11 @@
 import { PrismaClient, EventCategory, EventStatus } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
+
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'admin@projectalfa.com';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'Admin123!';
+const ADMIN_NAME = 'Project Alfa Admin';
 
 // Seed events mirror ProjectAlfaFE/src/data/events.json for visual continuity (D-03)
 // Backend-specific fields added per D-04: start_time, duration_minutes, capacity, status
@@ -153,6 +158,21 @@ const SEED_EVENTS = [
 ];
 
 async function main() {
+  // Seed admin user
+  console.log('Seeding admin user...');
+  const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
+  await prisma.admin.upsert({
+    where: { email: ADMIN_EMAIL },
+    update: {},
+    create: {
+      email: ADMIN_EMAIL,
+      password_hash: passwordHash,
+      name: ADMIN_NAME,
+    },
+  });
+  console.log(`Seeded admin: ${ADMIN_EMAIL}`);
+
+  // Seed events
   console.log('Seeding events...');
   for (const event of SEED_EVENTS) {
     await prisma.event.upsert({
