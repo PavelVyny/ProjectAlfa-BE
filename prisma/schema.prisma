@@ -57,3 +57,40 @@ model RefreshToken {
   @@index([expiresAt])
   @@index([isActive])
 }
+
+enum EventCategory {
+  MUSIC
+  TECH
+  ART
+  FOOD
+  WELLNESS
+  ENTERTAINMENT
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+}
+
+model Event {
+  id               String        @id @default(cuid())
+  title            String
+  description      String
+  category         EventCategory
+  price            Float
+  date             DateTime      @db.Date
+  start_time       String        // "HH:MM" format, stored as string (no timezone drift)
+  duration_minutes Int
+  capacity         Int
+  status           EventStatus   @default(DRAFT)
+  location         String
+  image_url        String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([status])
+  @@index([category])
+  @@index([status, category])
+  @@index([date])
+}
