@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { EventStatus, Prisma } from '@prisma/client';
+import { EventCategory, EventStatus, Prisma } from '@prisma/client';
 import { GetEventsQueryDto } from './dto/events.dto';
+import { CreateEventDto } from '../admin/dto/admin-events.dto';
+import { UpdateEventDto } from '../admin/dto/admin-events.dto';
+import { UpdateEventStatusDto } from '../admin/dto/admin-events.dto';
 
 export interface EventsPaginatedResult {
   data: Prisma.EventGetPayload<Record<string, never>>[];
@@ -80,5 +83,119 @@ export class EventsService {
     }
 
     return event;
+  }
+
+  // ── Admin methods (all statuses, all events) ────────────────────────────
+
+  async findAllAdmin(query: {
+    category?: EventCategory;
+    status?: EventStatus;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<EventsPaginatedResult> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const { category, status, search } = query;
+
+    const where: Prisma.EventWhereInput = {
+      // No status hardcode — admin sees all statuses unless explicitly filtered
+      ...(status && { status }),
+      ...(category && { category }),
+      ...(search && {
+        OR: [
+          { title: { contains: search, mode: 'insensitive' as const } },
+          { description: { contains: search, mode: 'insensitive' as const } },
+        ],
+      }),
+    };
+
+    const skip = (page - 1) * limit;
+
+    const [events, total] = await this.prisma.$transaction([
+      this.prisma.event.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { date: 'asc' },
+      }),
+      this.prisma.event.count({ where }),
+    ]);
+
+    return {
+      data: events,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async findOneAdmin(
+    id: string,
+  ): Promise<Prisma.EventGetPayload<Record<string, never>>> {
+    const event = await this.prisma.event.findUnique({ where: { id } });
+    if (!event) {
+      throw new NotFoundException(`Event with id "${id}" not found`);
+    }
+    return event;
+  }
+
+  async createEvent(
+    dto: CreateEventDto,
+  ): Promise<Prisma.EventGetPayload<Record<string, never>>> {
+    return this.prisma.event.create({
+      data: {
+        title: dto.title,
+        description: dto.description,
+        category: dto.category,
+        price: dto.price,
+        date: new Date(dto.date), // Prisma DateTime @db.Date accepts JS Date
+        start_time: dto.start_time,
+        duration_minutes: dto.duration_minutes,
+        capacity: dto.capacity,
+        status: dto.status ?? EventStatus.DRAFT,
+        location: dto.location,
+        image_url: dto.image_url ?? null,
+      },
+    });
+  }
+
+  async updateEvent(
+    id: string,
+    dto: UpdateEventDto,
+  ): Promise<Prisma.EventGetPayload<Record<string, never>>> {
+    await this.findOneAdmin(id); // throws NotFoundException if not found
+
+    return this.prisma.event.update({
+      where: { id },
+      data: {
+        title: dto.title,
+        description: dto.description,
+        category: dto.category,
+        price: dto.price,
+        date: new Date(dto.date),
+        start_time: dto.start_time,
+        duration_minutes: dto.duration_minutes,
+        capacity: dto.capacity,
+        status: dto.status,
+        location: dto.location,
+        image_url: dto.image_url ?? null,
+      },
+    });
+  }
+
+  async deleteEvent(id: string): Promise<void> {
+    await this.findOneAdmin(id); // throws NotFoundException if not found
+    await this.prisma.event.delete({ where: { id } });
+  }
+
+  async updateEventStatus(
+    id: string,
+    dto: UpdateEventStatusDto,
+  ): Promise<Prisma.EventGetPayload<Record<string, never>>> {
+    await this.findOneAdmin(id); // throws NotFoundException if not found
+
+    return this.prisma.event.update({
+      where: { id },
+      data: { status: dto.status },
+    });
   }
 }

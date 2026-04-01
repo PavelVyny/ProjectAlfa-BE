@@ -7,5 +7,6 @@ import { PrismaService } from '../prisma/prisma.service';
   imports: [], // No PrismaModule exists — PrismaService is a direct provider
   controllers: [EventsController],
   providers: [EventsService, PrismaService],
+  exports: [EventsService], // per D-02: AdminModule needs EventsService
 })
 export class EventsModule {}
