@@ -122,8 +122,23 @@ model Event {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
+  bookings         Booking[]
+
   @@index([status])
   @@index([category])
   @@index([status, category])
   @@index([date])
+}
+
+model Booking {
+  id                String   @id @default(cuid())
+  eventId           String
+  event             Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  email             String
+  participant_count Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([eventId])
+  @@index([email])
 }
