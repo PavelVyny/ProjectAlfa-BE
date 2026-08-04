@@ -15,8 +15,6 @@ export class EventsController {
     const result = await this.eventsService.findAll(query);
     // Return SuccessResponse directly so ResponseInterceptor passes it through unchanged
     // (interceptor detects 'success' key and skips double-wrapping).
-    // Wire format: { success, message, data: { data: Event[], meta: {...} }, meta: { executionTime }, timestamp, requestId }
-    // Phase 6 reads: response.data.data (events array) and response.data.meta (pagination meta)
     return new SuccessResponse(result, ResponseMessages.RETRIEVED);
   }
 

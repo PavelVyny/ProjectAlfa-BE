@@ -60,7 +60,7 @@ export class EventsService {
         where,
         skip,
         take: limit,
-        orderBy: { date: 'asc' },
+        orderBy: { date: 'desc' },
       }),
       this.prisma.event.count({ where }),
     ]);
