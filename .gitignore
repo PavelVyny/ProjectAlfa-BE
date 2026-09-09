@@ -36,6 +36,7 @@ public/
 # Optional: Swagger JSON
 swagger.json
 
-# Database dumps (contain password and refresh token hashes)
-backup/
-/generated/prisma
+# Audit and test reports
+LIVE-TEST-REPORT.md
+audit-results.json
+
