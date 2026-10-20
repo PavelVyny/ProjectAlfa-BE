@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Patch,
   Body,
   HttpCode,
   HttpStatus,
@@ -195,7 +196,7 @@ export class AuthController {
     return this.authService.changePassword(req.user.id, changePasswordDto);
   }
 
-  @Post('profile')
+  @Patch('profile')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async updateProfile(
