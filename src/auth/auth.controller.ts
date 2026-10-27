@@ -1,7 +1,7 @@
 import {
   Controller,
   Post,
-  Get,
+  Patch,
   Body,
   HttpCode,
   HttpStatus,
@@ -196,7 +196,7 @@ export class AuthController {
     return this.authService.changePassword(req.user.id, changePasswordDto);
   }
 
-  @Post('profile')
+  @Patch('profile')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async updateProfile(
@@ -213,24 +213,5 @@ export class AuthController {
     });
 
     return { user: updatedUser };
-  }
-
-  // Development-only debug endpoints
-  @Get('debug/token-info')
-  @UseGuards(JwtAuthGuard)
-  debugTokenInfo(@Request() req: { user: { id: string; email: string } }): {
-    message: string;
-    user: { id: string; email: string };
-  } {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('Debug endpoints not available in production');
-    }
-
-    console.log('🐛 [AUTH] Debug: Token info requested');
-
-    return {
-      message: 'Token information',
-      user: req.user,
-    };
   }
 }
